@@ -36,8 +36,8 @@ public class Game : GameWindow
 		GL.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
 
 		int ShaderProgram = GL.CreateProgram();
-		GL.AttachShader(ShaderProgram, CreateShader("vertex.glsl", ShaderType.VertexShader));
-		GL.AttachShader(ShaderProgram, CreateShader("fragment.glsl", ShaderType.FragmentShader));
+		GL.AttachShader(ShaderProgram, CreateShader("src/vertex.glsl", ShaderType.VertexShader));
+		GL.AttachShader(ShaderProgram, CreateShader("src/fragment.glsl", ShaderType.FragmentShader));
 		GL.LinkProgram(ShaderProgram);
 		GL.UseProgram(ShaderProgram);
 
