@@ -39,7 +39,7 @@ In order of importance:
 
 This task list is **incomplete** and used merely as a tracker that can be expanded as required.
 
-- [ ] Functional game
+- [ ] Minimum viable product (functional game)
   - [ ] Display
     - [ ] Simple unit
     - [ ] Unit with lighting
@@ -75,14 +75,14 @@ This task list is **incomplete** and used merely as a tracker that can be expand
       - [ ] Scouting
       - [ ] Analysis of enemy units
       - [ ] Cost/benefit analysis of counters
-- [ ] Data-driven design
-  - All of these items should be able to be designated in text files
-  - [ ] Level editor
-  - [ ] Designing units and buildings
-    - [ ] Importing models 
-    - [ ] Statistics
-  - [ ] Designing factions
-    - [ ] Custom unit pools
-    - [ ] Unique resources
-  - [ ] Designing missions / preset items on map
-  - [ ] Designing campaigns (series of missions)
+  - [ ] Data-driven design
+    - All of these items should be able to be designated in text files
+    - [ ] Level editor
+    - [ ] Designing units and buildings
+      - [ ] Importing models 
+      - [ ] Statistics
+    - [ ] Designing factions
+      - [ ] Custom unit pools
+      - [ ] Unique resources
+    - [ ] Designing missions / preset items on map
+    - [ ] Designing campaigns (series of missions)
