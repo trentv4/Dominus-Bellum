@@ -6,6 +6,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
 //https://opentk.net/learn/chapter1/2-hello-triangle.html#linking-vertex-attributes
+//http://www.opengl-tutorial.org/beginners-tutorials/tutorial-8-basic-shading/
 
 public class Game : GameWindow
 {
