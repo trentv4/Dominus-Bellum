@@ -15,6 +15,39 @@ public class Game : GameWindow
 	public static readonly double LOGIC_UPDATE_PER_SECOND = 60.0;
 	public static readonly Vector2i WINDOW_SIZE = new Vector2i(1280, 720);
 	private int VAO = -1;
+	Drawable Square;
+	Drawable Square2;
+
+	public struct Drawable
+	{
+		public readonly int IndexLength;
+		public int ElementBufferArray;
+		public int VertexBufferObject;
+
+		public Drawable(float[] Vertices, uint[] Indices)
+		{
+			IndexLength = Indices.Length;
+
+			ElementBufferArray = GL.GenBuffer();
+			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray);
+			GL.BufferData(BufferTarget.ElementArrayBuffer, Indices.Length * sizeof(uint), Indices, BufferUsageHint.StaticDraw);
+
+			VertexBufferObject = GL.GenBuffer();
+			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+			GL.BufferData(BufferTarget.ArrayBuffer, Vertices.Length * sizeof(float), Vertices, BufferUsageHint.StaticDraw);
+		}
+
+		public void Bind()
+		{
+			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray);
+			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+		}
+
+		public void Draw()
+		{
+			GL.DrawElements(PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
+		}
+	}
 
 	public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -41,31 +74,29 @@ public class Game : GameWindow
 		GL.LinkProgram(ShaderProgram);
 		GL.UseProgram(ShaderProgram);
 
-		float[] vertices = {
+		VAO = GL.GenVertexArray();
+		GL.BindVertexArray(VAO);
+		GL.EnableVertexAttribArray(0);
+
+		Square = new Drawable(new float[]{
 			0.5f, 0.5f, 0.0f,
 			0.5f, -0.5f, 0.0f,
 			-0.5f, 0.5f, 0.0f,
 			-0.5f, -0.5f, 0.0f,
-		};
-
-		uint[] indices = {
-			0, 1, 2,
+		}, new uint[]{
 			1, 2, 3,
-		};
-
-		VAO = GL.GenVertexArray();
-		GL.BindVertexArray(VAO);
-
-		int EBO = GL.GenBuffer();
-		GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
-		GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-
-		int VertexBufferObject = GL.GenBuffer();
-		GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
-		GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+		});
 
 		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-		GL.EnableVertexAttribArray(0);
+
+		Square2 = new Drawable(new float[]{
+			0.5f, 0.5f, 0.0f,
+			0.5f, -0.5f, 0.0f,
+			-0.5f, 0.5f, 0.0f,
+			-0.5f, -0.5f, 0.0f,
+		}, new uint[]{
+			0, 1, 2,
+		});
 
 		Console.WriteLine("OnRenderThreadStarted(): end");
 	}
@@ -75,7 +106,12 @@ public class Game : GameWindow
 		GL.Clear(ClearBufferMask.ColorBufferBit);
 
 		GL.BindVertexArray(VAO);
-		GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
+
+		Square.Bind();
+		Square.Draw();
+
+		Square2.Bind();
+		Square2.Draw();
 
 		Context.SwapBuffers();
 		Console.WriteLine("OnRenderFrame(): end");
