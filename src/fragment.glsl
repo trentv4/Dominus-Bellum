@@ -1,7 +1,11 @@
 #version 330 core
 out vec4 outColor;
 
+in vec2 uv;
+in vec3 normal;
+in vec4 color;
+
 void main()
 {
-	outColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+	outColor = color;
 }
