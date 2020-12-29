@@ -105,10 +105,10 @@ namespace DominusCore
 		/* Rendering */
 		private int VertexArrayObject = -1;
 		private ShaderProgram Program;
-		private Drawable TestSquare;
-		float rotation = 0f;
-		static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, 1.0f);
-		static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, 0.0f); // Relative to CameraPosition, managed in OnRenderFrame()
+		private Drawable DrawableTest;
+		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
+		private static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, -1.0f); // Relative to CameraPosition, managed in OnRenderFrame()
+		private float CameraAngle = 90;
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -127,11 +127,11 @@ namespace DominusCore
 				ShaderProgram.CreateShader("src/fragment.glsl", ShaderType.FragmentShader)
 			});
 
-			TestSquare = new Drawable(new float[]{
-				0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,// top right
-				0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.5f, 0.0f, 1.0f,// bottom right
-				-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,// bottom left
-				-0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  0.0f, 0.5f, 1.0f, 1.0f,// top left
+			DrawableTest = new Drawable(new float[]{
+				0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+				0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+				-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+				-0.5f,  0.5f, 0.0f, 0.0f, 1.0f,  0.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
 			}, new uint[]{
 				0, 1, 3,
 				1, 2, 3
@@ -142,16 +142,16 @@ namespace DominusCore
 			GL.EnableVertexAttribArray(0);
 			GL.EnableVertexAttribArray(1);
 			GL.EnableVertexAttribArray(2);
-			//GL.EnableVertexAttribArray(3);
+			GL.EnableVertexAttribArray(3);
 
 			// Format: [xyz][uv][rgba][qrs]
 			// Make sure to keep synced with how data is interleaved in vertex data!
-			int stride = 9 * sizeof(float);
+			int stride = 12 * sizeof(float);
 			// AttribPointer: (location, vector size, type, normalize data, stride, offset in bytes)
 			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0 * sizeof(float)); /* xyz          */
 			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float)); /* uv           */
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, stride, 5 * sizeof(float)); /* rgba         */
-			//GL.VertexAttribPointer(0, 4, VertexAttribPointerType.Float, false, stride, 0 * sizeof(float)); /* qrs (normal) */
+			GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, stride, 9 * sizeof(float)); /* qrs (normal) */
 
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
@@ -163,17 +163,19 @@ namespace DominusCore
 			Console.Write("OnRenderFrame(): start - ");
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			//rotation += 1f;
-			Matrix4 model = Matrix4.CreateRotationZ(rotation * RCF)
-						  * Matrix4.CreateScale(0.25f, 0.25f, 0.25f)
-						  * Matrix4.CreateTranslation(0, 0f, rotation * 1f);
-			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraTarget, Vector3.UnitY);
+			Matrix4 model = Matrix4.Identity;
+			model *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
+			model *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
+
+			Vector3 tar = CameraPosition + CameraTarget;
+			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			Matrix4 perspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WINDOW_SIZE.X / WINDOW_SIZE.Y, 0.001f, 100.0f);
 
 			Matrix4 mvpTransform = model * view * perspective;
 			GL.UniformMatrix4(Program.UniformMVPID, true, ref mvpTransform);
-			TestSquare.Bind();
-			TestSquare.Draw();
+
+			DrawableTest.Bind();
+			DrawableTest.Draw();
 
 			Context.SwapBuffers();
 			base.OnRenderFrame(args);
@@ -184,21 +186,22 @@ namespace DominusCore
 		// Thread: logic
 		protected override void OnUpdateFrame(FrameEventArgs args)
 		{
-			float speed = 0.1f;
+			float speed = 0.05f;
+			float angleSpeed = 1f;
 
 			if (KeyboardState.IsKeyDown(Keys.W))
-				CameraPosition += Vector3.UnitY * speed;
+				CameraPosition += CameraTarget * speed;
 			if (KeyboardState.IsKeyDown(Keys.S))
-				CameraPosition -= Vector3.UnitY * speed;
+				CameraPosition -= CameraTarget * speed;
 			if (KeyboardState.IsKeyDown(Keys.A))
-				CameraPosition += Vector3.UnitX * speed;
+				CameraAngle -= angleSpeed;
 			if (KeyboardState.IsKeyDown(Keys.D))
-				CameraPosition -= Vector3.UnitX * speed;
+				CameraAngle += angleSpeed;
 			if (KeyboardState.IsKeyDown(Keys.Space))
-				CameraPosition += Vector3.UnitZ * speed;
+				CameraPosition += Vector3.UnitY * speed;
 			if (KeyboardState.IsKeyDown(Keys.LeftShift))
-				CameraPosition -= Vector3.UnitZ * speed;
-
+				CameraPosition -= Vector3.UnitY * speed;
+			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), CameraTarget.Y, (float)Math.Sin(CameraAngle * RCF));
 			base.OnUpdateFrame(args);
 		}
 
