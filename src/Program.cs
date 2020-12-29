@@ -107,8 +107,8 @@ namespace DominusCore
 		private ShaderProgram Program;
 		private Drawable TestSquare;
 		float rotation = 0f;
-		static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, 0.0f);
-		static Vector3 CameraTarget = Vector3.UnitZ; // Relative to CameraPosition, managed in OnRenderFrame()
+		static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, 1.0f);
+		static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, 0.0f); // Relative to CameraPosition, managed in OnRenderFrame()
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -163,14 +163,14 @@ namespace DominusCore
 			Console.Write("OnRenderFrame(): start - ");
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			rotation += 1f;
+			//rotation += 1f;
 			Matrix4 model = Matrix4.CreateRotationZ(rotation * RCF)
 						  * Matrix4.CreateScale(0.25f, 0.25f, 0.25f)
-						  * Matrix4.CreateTranslation(0, 0f, rotation * 0.01f);
-			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
+						  * Matrix4.CreateTranslation(0, 0f, rotation * 1f);
+			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraTarget, Vector3.UnitY);
 			Matrix4 perspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WINDOW_SIZE.X / WINDOW_SIZE.Y, 0.001f, 100.0f);
 
-			Matrix4 mvpTransform = view * model;
+			Matrix4 mvpTransform = model * view * perspective;
 			GL.UniformMatrix4(Program.UniformMVPID, true, ref mvpTransform);
 			TestSquare.Bind();
 			TestSquare.Draw();

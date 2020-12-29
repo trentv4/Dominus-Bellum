@@ -12,7 +12,7 @@ out vec4 color;
 
 void main()
 {
-	gl_Position = mvp * vec4(_position, 1.0);
+	gl_Position = vec4(_position, 1.0) * mvp;
 
 	// Translates required data to fragment shader
 	uv = _uv;
