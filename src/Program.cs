@@ -109,6 +109,9 @@ namespace DominusCore
 		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
 		private static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, -1.0f); // Relative to CameraPosition, managed in OnRenderFrame()
 		private float CameraAngle = 90;
+		/* Counters */
+		private int RenderFrameCount = 0;
+		private int LogicFrameCount = 0;
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -161,13 +164,14 @@ namespace DominusCore
 		protected override void OnRenderFrame(FrameEventArgs args)
 		{
 			Console.Write("OnRenderFrame(): start - ");
+			RenderFrameCount++;
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			Matrix4 model = Matrix4.Identity;
 			model *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
 			model *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
+			model *= Matrix4.CreateRotationY(RenderFrameCount * RCF);
 
-			Vector3 tar = CameraPosition + CameraTarget;
 			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			Matrix4 perspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WINDOW_SIZE.X / WINDOW_SIZE.Y, 0.001f, 100.0f);
 
@@ -186,6 +190,7 @@ namespace DominusCore
 		// Thread: logic
 		protected override void OnUpdateFrame(FrameEventArgs args)
 		{
+			LogicFrameCount++;
 			float speed = 0.05f;
 			float angleSpeed = 1f;
 
