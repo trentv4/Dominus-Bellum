@@ -133,9 +133,7 @@ namespace DominusCore
 			GL.Viewport(0, 0, WINDOW_SIZE.X, WINDOW_SIZE.Y);
 			GL.Enable(EnableCap.DepthTest);
 
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)All.Linear);
+
 
 			Program = new ShaderProgram(new int[] {
 				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
@@ -152,15 +150,21 @@ namespace DominusCore
 				1, 2, 3
 			});
 
-			texID = GL.GenTexture();
-			GL.ActiveTexture(TextureUnit.Texture0);
-			GL.BindTexture(TextureTarget.Texture2D, texID);
-
 			ImageResult texture;
 			using (FileStream stream = File.OpenRead("assets/tiles_diffuse.jpg"))
 			{
 				texture = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 			}
+			texID = GL.GenTexture();
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, texID);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+
+			int anisotropicLevel = 16;
+			GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)All.TextureMaxAnisotropy,
+							MathHelper.Clamp(anisotropicLevel, 1f, GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy)));
 
 			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
 						  texture.Width, texture.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, texture.Data);
