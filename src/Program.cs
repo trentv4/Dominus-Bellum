@@ -1,10 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Drawing;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using StbImageSharp;
 
 // Resources
 // https://opentk.net/learn/chapter1/2-hello-triangle.html#linking-vertex-attributes
@@ -49,7 +51,7 @@ namespace DominusCore
 
 		public void Draw()
 		{
-			GL.DrawElements(PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
+			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
 		}
 
 		// Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close
@@ -67,6 +69,7 @@ namespace DominusCore
 		public readonly int ProgramID;
 		// OpenGL ID for the uniform mat4 mvp
 		public readonly int UniformMVPID;
+		public readonly int UniformTexture0;
 
 		// Creates and uses a new shader program using provided shader IDs to attach
 		// Use CreateShader(...) to get these IDs
@@ -77,7 +80,10 @@ namespace DominusCore
 				GL.AttachShader(ProgramID, i);
 			GL.LinkProgram(ProgramID);
 			GL.UseProgram(ProgramID);
+			foreach (int i in shaders)
+				GL.DeleteShader(i);
 			UniformMVPID = GL.GetUniformLocation(ProgramID, "mvp");
+			UniformTexture0 = GL.GetUniformLocation(ProgramID, "texture0");
 		}
 
 		// Creates, loads, and compiles a shader given a file. Handles errors in the shader by writing to console
@@ -109,9 +115,11 @@ namespace DominusCore
 		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
 		private static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, -1.0f); // Relative to CameraPosition, managed in OnRenderFrame()
 		private float CameraAngle = 90;
+		private static Matrix4 matrixPerspective;
 		/* Counters */
 		private int RenderFrameCount = 0;
 		private int LogicFrameCount = 0;
+		int texID;
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -124,6 +132,10 @@ namespace DominusCore
 			GL.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
 			GL.Viewport(0, 0, WINDOW_SIZE.X, WINDOW_SIZE.Y);
 			GL.Enable(EnableCap.DepthTest);
+
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)All.Linear);
 
 			Program = new ShaderProgram(new int[] {
 				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
@@ -139,6 +151,20 @@ namespace DominusCore
 				0, 1, 3,
 				1, 2, 3
 			});
+
+			texID = GL.GenTexture();
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, texID);
+
+			ImageResult texture;
+			using (FileStream stream = File.OpenRead("assets/tiles_diffuse.jpg"))
+			{
+				texture = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+			}
+
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+						  texture.Width, texture.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, texture.Data);
+			GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
 			VertexArrayObject = GL.GenVertexArray();
 			GL.BindVertexArray(VertexArrayObject);
@@ -156,6 +182,7 @@ namespace DominusCore
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, stride, 5 * sizeof(float)); /* rgba         */
 			GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, stride, 9 * sizeof(float)); /* qrs (normal) */
 
+			matrixPerspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WINDOW_SIZE.X / WINDOW_SIZE.Y, 0.001f, 100.0f);
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
 
@@ -167,20 +194,23 @@ namespace DominusCore
 			RenderFrameCount++;
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			Matrix4 model = Matrix4.Identity;
-			model *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
-			model *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
-			model *= Matrix4.CreateRotationY(RenderFrameCount * RCF);
+			Matrix4 matrixVP = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY) * matrixPerspective;
+			//for(int i = 0; i < models.Length; i++) {
+			Matrix4 matrixModel = Matrix4.Identity;
+			matrixModel *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
+			matrixModel *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
+			matrixModel *= Matrix4.CreateRotationY(RenderFrameCount * RCF);
 
-			Matrix4 view = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
-			Matrix4 perspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WINDOW_SIZE.X / WINDOW_SIZE.Y, 0.001f, 100.0f);
-
-			Matrix4 mvpTransform = model * view * perspective;
+			Matrix4 mvpTransform = matrixModel * matrixVP;
 			GL.UniformMatrix4(Program.UniformMVPID, true, ref mvpTransform);
+
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, texID);
+			GL.Uniform1(Program.UniformTexture0, 0);
 
 			DrawableTest.Bind();
 			DrawableTest.Draw();
-
+			//}
 			Context.SwapBuffers();
 			base.OnRenderFrame(args);
 			Console.WriteLine("end");
