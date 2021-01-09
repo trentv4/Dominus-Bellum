@@ -1,29 +1,26 @@
 ﻿using System;
 using System.IO;
-using System.Drawing;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using StbImageSharp;
-using DominusCore;
 
 namespace DominusCore
 {
+	/// <summary> Storage format for non-animated models. This does not preserve vertex data in CPU memory after upload. 
+	/// <br/> Provides methods to bind, draw, and dispose.</summary>
 	struct Drawable : IDisposable
 	{
 		private readonly int IndexLength;
-		// OpenGL ID for the index buffer
 		public readonly int ElementBufferArray_ID;
-		// OpenGL ID for the vertex data 
 		public readonly int VertexBufferObject_ID;
 
-		// Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs])
-		// This represents a single model with specified data. It may be rendered many times with different uniforms,
-		// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
-		// discarded immediately after being sent to the GL context.
-		// !! Warning !! This is not a logical unit and exists on the render thread only!
+		/// <summary> Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs]).
+		/// <br/>This represents a single model with specified data. It may be rendered many times with different uniforms,
+		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
+		/// discarded immediately after being sent to the GL context.
+		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
 		public Drawable(float[] VertexData, uint[] Indices)
 		{
 			IndexLength = Indices.Length;
@@ -37,8 +34,8 @@ namespace DominusCore
 			GL.BufferData(BufferTarget.ArrayBuffer, VertexData.Length * sizeof(float), VertexData, BufferUsageHint.StaticDraw);
 		}
 
-		// Binds both the vertex and index data for subsequent drawing
-		// !! Warning !! This may be performance heavy with large amounts of different models!
+		/// <summary> Binds both the vertex and index data for subsequent drawing.
+		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
 		public void Bind()
 		{
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
@@ -50,8 +47,8 @@ namespace DominusCore
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
 		}
 
-		// Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close
-		// !! Warning !! Avoid using this unless you know what you're doing! This can crash!
+		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
+		/// <br/> !! Warning !! Avoid using this unless you know what you're doing! This can crash! </summary>
 		public void Dispose()
 		{
 			GL.DeleteBuffer(VertexBufferObject_ID);
@@ -61,7 +58,6 @@ namespace DominusCore
 
 	struct ShaderProgram
 	{
-		// OpenGL ID for the shader program
 		public readonly int ShaderProgram_ID;
 		public readonly int UniformMVP_ID;
 		public readonly int UniformMapDiffuse_ID;
@@ -70,9 +66,9 @@ namespace DominusCore
 		public readonly int UniformMapNormal_ID;
 		public readonly int UniformMapHeight_ID;
 
-		// Creates and uses a new shader program using provided shader IDs to attach
-		// Use CreateShader(...) to get these IDs
-		public ShaderProgram(int[] shaders, int textureCount)
+		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
+		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
+		public ShaderProgram(int[] shaders)
 		{
 			ShaderProgram_ID = GL.CreateProgram();
 			foreach (int i in shaders)
@@ -90,8 +86,7 @@ namespace DominusCore
 			UniformMapHeight_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_height");
 		}
 
-		// Creates, loads, and compiles a shader given a file. Handles errors in the shader by writing to console
-		// Returns the shader ID
+		/// <summary> Creates, loads, and compiles a shader given a file. Handles errors in the shader. Returns the shader ID. </summary>
 		public static int CreateShader(string source, ShaderType type)
 		{
 			Console.WriteLine($"Create shader: \"{source}\"");
@@ -107,21 +102,26 @@ namespace DominusCore
 	public class Game : GameWindow
 	{
 		/* Constants */
-		public static readonly string Title = "Display";
+		public static readonly string WindowTitle = "Display";
 		public static readonly double RenderUpdatePerSecond = 60.0;
 		public static readonly double LogicUpdatePerSecond = 60.0;
 		public static readonly Vector2i WindowSize = new Vector2i(1280, 720);
-		const float RCF = 0.017453293f; // Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180
+		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
+		const float RCF = 0.017453293f;
+
 		/* Rendering */
 		private int VertexArrayObject_ID = -1;
 		private ShaderProgram Program;
 		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
-		private static Vector3 CameraTarget = new Vector3(0.0f, 0.0f, -1.0f); // Relative to CameraPosition, managed in OnRenderFrame()
+		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
+		private static Vector3 CameraTarget = -Vector3.UnitZ;
 		private float CameraAngle = 90;
 		private static Matrix4 MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WindowSize.X / WindowSize.Y, 0.001f, 100.0f);
+
 		/* Counters */
 		private int RenderFrameCount = 0;
 		private int LogicFrameCount = 0;
+
 		/* Debugging */
 		private Drawable DrawableTest;
 		private Texture textureTest;
@@ -129,20 +129,16 @@ namespace DominusCore
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
-		// Only run once. Creates the shader program, Drawable objects, sets OpenGL flags, sets shader attribs
-		// Thread: render
+		/// <summary> Handles all graphics setup processing: creates shader program, drawables, sets flags, sets attribs.
+		/// <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderThreadStarted()
 		{
 			Console.WriteLine("OnRenderThreadStarted(): start");
-
-			GL.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
-			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
 			GL.Enable(EnableCap.DepthTest);
-
 			Program = new ShaderProgram(new int[] {
 				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
 				ShaderProgram.CreateShader("src/fragment.glsl", ShaderType.FragmentShader)
-			}, 3);
+			});
 
 			DrawableTest = new Drawable(new float[]{
 				0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
@@ -174,8 +170,7 @@ namespace DominusCore
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
 
-		// Handles per-frame rendering cycle. Runs every single frame.
-		// Thread: render
+		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args)
 		{
 			RenderFrameCount++;
@@ -203,30 +198,26 @@ namespace DominusCore
 			long frameTime = (DateTime.Now.Ticks - start) / 10000;
 		}
 
-		// Handles game logic, input, anything besides rendering
-		// Thread: logic
+		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
 		protected override void OnUpdateFrame(FrameEventArgs args)
 		{
 			LogicFrameCount++;
-			float speed = 0.05f;
-			float angleSpeed = 1f;
-
-			if (KeyboardState.IsKeyDown(Keys.W))
-				CameraPosition += CameraTarget * speed;
-			if (KeyboardState.IsKeyDown(Keys.S))
-				CameraPosition -= CameraTarget * speed;
-			if (KeyboardState.IsKeyDown(Keys.A))
-				CameraAngle -= angleSpeed;
-			if (KeyboardState.IsKeyDown(Keys.D))
-				CameraAngle += angleSpeed;
-			if (KeyboardState.IsKeyDown(Keys.Space))
-				CameraPosition += Vector3.UnitY * speed;
-			if (KeyboardState.IsKeyDown(Keys.LeftShift))
-				CameraPosition -= Vector3.UnitY * speed;
+			int ws = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.W)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.S));
+			int ad = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.A)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.D));
+			int qe = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.Q)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.E));
+			int sl = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.Space)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.LeftShift));
+			CameraPosition += 0.05f // speed
+							* ((CameraTarget * ws) // Forward-back
+							+ (Vector3.UnitY * sl) // Up-down
+							+ (ad * Vector3.Cross(Vector3.UnitY, CameraTarget))); // Strafing
+			CameraAngle -= qe * 1f;
 			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), CameraTarget.Y, (float)Math.Sin(CameraAngle * RCF));
+
 			base.OnUpdateFrame(args);
 		}
 
+
+		/// <summary> Handles resizing and keeping GLViewport correct</summary>
 		protected override void OnResize(ResizeEventArgs e)
 		{
 			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
@@ -243,7 +234,7 @@ namespace DominusCore
 
 			NativeWindowSettings nws = new NativeWindowSettings();
 			nws.Size = WindowSize;
-			nws.Title = Title;
+			nws.Title = WindowTitle;
 
 			Console.WriteLine("Creating game object");
 			using (Game g = new Game(gws, nws))
