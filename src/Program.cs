@@ -15,13 +15,14 @@ namespace DominusCore
 		private readonly int IndexLength;
 		public readonly int ElementBufferArray_ID;
 		public readonly int VertexBufferObject_ID;
+		private readonly Texture[] textures;
 
 		/// <summary> Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs]).
 		/// <br/>This represents a single model with specified data. It may be rendered many times with different uniforms,
 		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
 		/// discarded immediately after being sent to the GL context.
 		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
-		public Drawable(float[] VertexData, uint[] Indices)
+		public Drawable(float[] VertexData, uint[] Indices, Texture[] textures)
 		{
 			IndexLength = Indices.Length;
 
@@ -32,6 +33,8 @@ namespace DominusCore
 			VertexBufferObject_ID = GL.GenBuffer();
 			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject_ID);
 			GL.BufferData(BufferTarget.ArrayBuffer, VertexData.Length * sizeof(float), VertexData, BufferUsageHint.StaticDraw);
+
+			this.textures = textures;
 		}
 
 		/// <summary> Binds both the vertex and index data for subsequent drawing.
@@ -40,6 +43,8 @@ namespace DominusCore
 		{
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
 			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject_ID);
+			foreach (Texture t in textures)
+				t.Bind();
 		}
 
 		public void Draw()
@@ -97,6 +102,12 @@ namespace DominusCore
 				System.Console.WriteLine($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
 			return shader;
 		}
+
+		public ShaderProgram use()
+		{
+			GL.UseProgram(ShaderProgram_ID);
+			return this;
+		}
 	}
 
 	public class Game : GameWindow
@@ -112,6 +123,7 @@ namespace DominusCore
 		/* Rendering */
 		private int VertexArrayObject_ID = -1;
 		private ShaderProgram Program;
+		private ShaderProgram Program2;
 		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
@@ -124,8 +136,6 @@ namespace DominusCore
 
 		/* Debugging */
 		private Drawable DrawableTest;
-		private Texture textureTest;
-		private Texture textureTest2;
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -138,7 +148,11 @@ namespace DominusCore
 			Program = new ShaderProgram(new int[] {
 				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
 				ShaderProgram.CreateShader("src/fragment.glsl", ShaderType.FragmentShader)
-			});
+			}).use();
+			Program2 = new ShaderProgram(new int[] {
+				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
+				ShaderProgram.CreateShader("src/fragment_light.glsl", ShaderType.FragmentShader)
+			}).use();
 
 			DrawableTest = new Drawable(new float[]{
 				0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
@@ -148,10 +162,13 @@ namespace DominusCore
 			}, new uint[]{
 				0, 1, 3,
 				1, 2, 3
+			}, new Texture[] {
+				new Texture("assets/tiles_diffuse.jpg", TextureUnit.Texture0, Program.UniformMapDiffuse_ID),
+				new Texture("assets/tiles_gloss.jpg", TextureUnit.Texture1, Program.UniformMapGloss_ID),
+				new Texture("assets/tiles_ao.jpg", TextureUnit.Texture2, Program.UniformMapAO_ID),
+				new Texture("assets/tiles_normal.jpg", TextureUnit.Texture3, Program.UniformMapNormal_ID),
+				new Texture("assets/tiles_height.jpg", TextureUnit.Texture4, Program.UniformMapHeight_ID)
 			});
-
-			textureTest = new Texture("assets/tiles_diffuse.jpg", TextureUnit.Texture0, Program.UniformMapDiffuse_ID);
-			textureTest2 = new Texture("assets/tiles_ao.jpg", TextureUnit.Texture1, Program.UniformMapAO_ID);
 
 			VertexArrayObject_ID = GL.GenVertexArray();
 			GL.BindVertexArray(VertexArrayObject_ID);
@@ -167,35 +184,99 @@ namespace DominusCore
 			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float)); /* uv           */
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, stride, 5 * sizeof(float)); /* rgba         */
 
+			FramebufferGeometry = GL.GenFramebuffer();
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
+
+			gPosition = GL.GenTexture();
+			createBufferTex(gPosition, 0);
+			gNormal = GL.GenTexture();
+			createBufferTex(gNormal, 1);
+			gAlbedoSpec = GL.GenTexture();
+			createBufferTex(gAlbedoSpec, 2);
+			gHeightAO = GL.GenTexture();
+			createBufferTex(gHeightAO, 3);
+			DrawBuffersEnum[] buffers2 = new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2, DrawBuffersEnum.ColorAttachment3 };
+			GL.DrawBuffers(buffers2.Length, buffers2);
+
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
+
+		void createBufferTex(int texid, int offset)
+		{
+			GL.BindTexture(TextureTarget.Texture2D, texid);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16, WindowSize.X, WindowSize.Y,
+						  0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[0]);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0 + offset, TextureTarget.Texture2D, texid, 0);
+		}
+
+		int FramebufferGeometry;
+		int gPosition;
+		int gNormal;
+		int gAlbedoSpec;
+		int gHeightAO;
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args)
 		{
 			RenderFrameCount++;
 			long start = DateTime.Now.Ticks;
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
+			rend1();
+			rend2();
+
+			Context.SwapBuffers();
+			long frameTime = (DateTime.Now.Ticks - start) / 10000;
+		}
+
+		void rend1()
+		{
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			Program.use();
 			Matrix4 matrixModel = Matrix4.Identity;
 			matrixModel *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
 			matrixModel *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
 			matrixModel *= Matrix4.CreateRotationY(RenderFrameCount * RCF);
-
-			Matrix4 matrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
-			Matrix4 mvpTransform = matrixModel * matrixView * MatrixPerspective;
+			Matrix4 mvpTransform = matrixModel
+								 * Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY)
+								 * MatrixPerspective;
 			GL.UniformMatrix4(Program.UniformMVP_ID, true, ref mvpTransform);
-
-			textureTest.Bind();
-			textureTest2.Bind();
 
 			DrawableTest.Bind();
 			DrawableTest.Draw();
+		}
 
-			Context.SwapBuffers();
-			base.OnRenderFrame(args);
+		void rend2()
+		{
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			Program2.use();
 
-			long frameTime = (DateTime.Now.Ticks - start) / 10000;
+			Matrix4 mvpTransform = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY)
+									* MatrixPerspective;
+			GL.UniformMatrix4(Program.UniformMVP_ID, true, ref mvpTransform);
+
+			DrawableTest.Bind(); // screen-filling square
+
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, gPosition);
+			GL.Uniform1(Program2.ShaderProgram_ID, 0);
+
+			GL.ActiveTexture(TextureUnit.Texture1);
+			GL.BindTexture(TextureTarget.Texture2D, gNormal);
+			GL.Uniform1(Program2.ShaderProgram_ID, 1);
+
+			GL.ActiveTexture(TextureUnit.Texture2);
+			GL.BindTexture(TextureTarget.Texture2D, gAlbedoSpec);
+			GL.Uniform1(Program2.ShaderProgram_ID, 2);
+
+			GL.ActiveTexture(TextureUnit.Texture3);
+			GL.BindTexture(TextureTarget.Texture2D, gHeightAO);
+			GL.Uniform1(Program2.ShaderProgram_ID, 3);
+
+			DrawableTest.Draw();
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>

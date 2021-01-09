@@ -7,12 +7,15 @@ uniform mat4 mvp;
 
 out vec2 uv;
 out vec4 color;
+out vec3 position;
 
 void main()
 {
 	gl_Position = vec4(_position, 1.0) * mvp;
 
+
 	// Translates required data to fragment shader
+	position = gl_Position.rgb;
 	uv = _uv;
 	color = _color;
 }
