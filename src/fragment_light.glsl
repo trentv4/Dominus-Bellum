@@ -12,10 +12,5 @@ uniform sampler2D gHeightAO;
 
 void main()
 {
-	vec3 p = texture(gPosition, uv).rgb;
-	vec3 n = texture(gNormal, uv).rgb;
-	vec3 a = texture(gAlbedoSpec, uv).rgb;
-	float g = texture(gAlbedoSpec, uv).a;
-	vec2 hao = texture(gHeightAO, uv).rg;
-	FragColor = vec4(p.x, n.x, a.x, hao.r);
+	FragColor = vec4(texture(gPosition, uv).r, texture(gNormal, uv).r, texture(gAlbedoSpec, uv).r, texture(gHeightAO, uv).r);
 }

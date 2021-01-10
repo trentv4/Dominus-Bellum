@@ -13,16 +13,13 @@ namespace DominusCore
 	// Class representing a single texture storing only the texture ID
 	internal class Texture
 	{
-		// OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x
+		/// <summary> OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x. </summary>
 		private readonly float MaxAnisotrophy = GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy);
-		// OpenGL ID for the current texture
 		public readonly int TextureID;
-		public readonly TextureUnit Unit;
 		private readonly int ProgramUniform;
 
-		public Texture(string location, TextureUnit unit, int uniform)
+		public Texture(string location, int uniform)
 		{
-			Unit = unit;
 			ProgramUniform = uniform;
 
 			ImageResult image;
@@ -34,7 +31,7 @@ namespace DominusCore
 			float anisotropicLevel = MathHelper.Clamp(16, 1f, MaxAnisotrophy);
 
 			TextureID = GL.GenTexture();
-			Bind();
+			GL.BindTexture(TextureTarget.Texture2D, TextureID);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
@@ -46,11 +43,38 @@ namespace DominusCore
 
 		}
 
-		public void Bind()
+		public void Bind(int textureUnit)
 		{
-			GL.ActiveTexture(Unit);
+			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.Uniform1(ProgramUniform, Unit - TextureUnit.Texture0);
+			GL.Uniform1(ProgramUniform, textureUnit);
+		}
+	}
+
+	internal class FramebufferTexture
+	{
+		public readonly int TextureID;
+		public readonly int ProgramUniform;
+
+		public FramebufferTexture(int colorAttachment, int ProgramUniform)
+		{
+			this.ProgramUniform = ProgramUniform;
+
+			TextureID = GL.GenTexture();
+			GL.BindTexture(TextureTarget.Texture2D, TextureID);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16, Game.WindowSize.X, Game.WindowSize.Y,
+						  0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[0]);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0 + colorAttachment,
+									TextureTarget.Texture2D, TextureID, 0);
+		}
+
+		public void Bind(int textureUnit)
+		{
+			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
+			GL.BindTexture(TextureTarget.Texture2D, TextureID);
+			GL.Uniform1(ProgramUniform, textureUnit);
 		}
 	}
 }
