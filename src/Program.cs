@@ -71,7 +71,8 @@ namespace DominusCore
 	struct ShaderProgram
 	{
 		public readonly int ShaderProgram_ID;
-		public readonly int UniformMVP_ID;
+		public readonly int UniformModelView_ID;
+		public readonly int UniformPerspective_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
@@ -85,7 +86,8 @@ namespace DominusCore
 			foreach (int i in shaders)
 				GL.DeleteShader(i);
 
-			UniformMVP_ID = GL.GetUniformLocation(ShaderProgram_ID, "mvp");
+			UniformModelView_ID = GL.GetUniformLocation(ShaderProgram_ID, "modelView");
+			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
 		}
 
 		/// <summary> Creates, loads, and compiles a shader given a file. Handles errors in the shader. Returns the shader ID. </summary>
@@ -96,7 +98,7 @@ namespace DominusCore
 			GL.ShaderSource(shader, new StreamReader(source).ReadToEnd());
 			GL.CompileShader(shader);
 			if (GL.GetShaderInfoLog(shader) != System.String.Empty)
-				System.Console.WriteLine($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
+				throw new Exception($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
 			return shader;
 		}
 
@@ -126,7 +128,7 @@ namespace DominusCore
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
 		private float CameraAngle = 90;
-		private static Matrix4 MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(45f * RCF, WindowSize.X / WindowSize.Y, 0.001f, 100.0f);
+		private static Matrix4 MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, WindowSize.X / WindowSize.Y, 0.001f, 100.0f);
 
 		/* Counters */
 		private int RenderFrameCount = 0;
@@ -182,13 +184,12 @@ namespace DominusCore
 
 			FramebufferGeometry = GL.GenFramebuffer();
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
-			fbtex = new FramebufferTexture[] {
+			FramebufferTextures = new FramebufferTexture[] {
 				new FramebufferTexture(0, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gPosition")),
 				new FramebufferTexture(1, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gNormal")),
 				new FramebufferTexture(2, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gAlbedoSpec")),
-				new FramebufferTexture(3, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gHeightAO")),
 			};
-			DrawBuffersEnum[] attachments = new DrawBuffersEnum[fbtex.Length];
+			DrawBuffersEnum[] attachments = new DrawBuffersEnum[FramebufferTextures.Length];
 			for (int i = 0; i < attachments.Length; i++)
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
 			GL.DrawBuffers(attachments.Length, attachments);
@@ -202,13 +203,15 @@ namespace DominusCore
 			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 9 * sizeof(float), 0 * sizeof(float)); /* xyz          */
 			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 9 * sizeof(float), 3 * sizeof(float)); /* uv           */
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 9 * sizeof(float), 5 * sizeof(float)); /* rgba         */
-
+			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
+			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
 
 		int FramebufferGeometry;
-		int FramebufferLighting = 0;
-		FramebufferTexture[] fbtex;
+		FramebufferTexture[] FramebufferTextures;
+		int Uniform_CameraPosition;
+		int Uniform_Lights;
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args)
@@ -222,24 +225,23 @@ namespace DominusCore
 			matrixModel *= Matrix4.CreateTranslation(0.0f, 0.0f, 0.0f);
 			matrixModel *= Matrix4.CreateScale(0.5f, 0.5f, 0.5f);
 			matrixModel *= Matrix4.CreateRotationY(RenderFrameCount * RCF);
-			Matrix4 mvpTransform = matrixModel
-								 * Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY)
-								 * MatrixPerspective;
+			Matrix4 modelViewTransform = matrixModel * Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 
 			// Geometry pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GeometryShader.use();
-			GL.UniformMatrix4(GeometryShader.UniformMVP_ID, true, ref mvpTransform);
+			GL.UniformMatrix4(GeometryShader.UniformModelView_ID, true, ref modelViewTransform);
+			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref MatrixPerspective);
 			DrawableTest.BindAndDraw();
 
 			// Lighting pass
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferLighting);
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
-			GL.UniformMatrix4(LightingShader.UniformMVP_ID, true, ref mvpTransform);
-			for (int i = 0; i < fbtex.Length; i++)
-				fbtex[i].Bind(i);
+			GL.Uniform3(Uniform_CameraPosition, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
+			for (int i = 0; i < FramebufferTextures.Length; i++)
+				FramebufferTextures[i].Bind(i);
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 
 			Context.SwapBuffers();
