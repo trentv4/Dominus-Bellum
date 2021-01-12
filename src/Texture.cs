@@ -1,26 +1,24 @@
-using System;
 using System.IO;
-using System.Drawing;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework;
 using StbImageSharp;
 
 namespace DominusCore
 {
-	// Class representing a single texture storing only the texture ID
+	/// <summary> Class that wraps and provides helper methods for OpenGL textures and framebuffer textures. </summary>
 	internal class Texture
 	{
 		/// <summary> OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x. </summary>
 		private readonly float MaxAnisotrophy = GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy);
+		/// <summary> OpenGL ID assigned via GL.GenTexture() to this texture. </summary>
 		public readonly int TextureID;
-		private readonly int ProgramUniform;
+		/// <summary> Uniform ID assigned via GL.GetUniformLocation() which corresponds to one specific shader uniform. </summary>
+		private readonly int UniformLocation;
 
+		/// <summary> Creates a texture using anisotropic filtering, primarily meant for regular texture use. </summary>
 		public Texture(string location, int uniform)
 		{
-			ProgramUniform = uniform;
+			UniformLocation = uniform;
 
 			ImageResult image;
 			using (FileStream stream = File.OpenRead(location))
@@ -43,22 +41,11 @@ namespace DominusCore
 
 		}
 
-		public void Bind(int textureUnit)
+		/// <summary> Creates a Framebuffer texture, NOT MEANT FOR USE ON MODELS. Does not use anisotropic filtering.
+		/// <br/>The colorAttachment parameter is used as an offset from FramebufferAttachment.ColorAttachment0.</summary>
+		public Texture(int colorAttachment, int UniformLocation)
 		{
-			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
-			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.Uniform1(ProgramUniform, textureUnit);
-		}
-	}
-
-	internal class FramebufferTexture
-	{
-		public readonly int TextureID;
-		public readonly int ProgramUniform;
-
-		public FramebufferTexture(int colorAttachment, int ProgramUniform)
-		{
-			this.ProgramUniform = ProgramUniform;
+			this.UniformLocation = UniformLocation;
 
 			TextureID = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
@@ -70,11 +57,13 @@ namespace DominusCore
 									TextureTarget.Texture2D, TextureID, 0);
 		}
 
+		/// <summary> Binds the texture to specified texture unit. 
+		/// <br/>The textureUnit parameter used as an offset from TextureUnit.Texture0. </summary>
 		public void Bind(int textureUnit)
 		{
 			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.Uniform1(ProgramUniform, textureUnit);
+			GL.Uniform1(UniformLocation, textureUnit);
 		}
 	}
 }
