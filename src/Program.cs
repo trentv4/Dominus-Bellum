@@ -43,6 +43,24 @@ namespace DominusCore
 			return shader;
 		}
 
+		public static int[] CreateShaderFromUnified(string source)
+		{
+			Console.WriteLine($"Creating unified shader: \"{source}\"");
+			ShaderType[] types = new ShaderType[] { ShaderType.VertexShader, ShaderType.FragmentShader };
+			string[] sources = new StreamReader(source).ReadToEnd().Split("<split>");
+			int[] shaderIDs = new int[sources.Length];
+			for (int i = 0; i < sources.Length; i++)
+			{
+				int shader = GL.CreateShader(types[i]);
+				GL.ShaderSource(shader, sources[i]);
+				GL.CompileShader(shader);
+				if (GL.GetShaderInfoLog(shader) != System.String.Empty)
+					throw new Exception($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
+				shaderIDs[i] = shader;
+			}
+			return shaderIDs;
+		}
+
 		public ShaderProgram use()
 		{
 			GL.UseProgram(ShaderProgram_ID);
@@ -102,11 +120,7 @@ namespace DominusCore
 			GL.Enable(EnableCap.DepthTest);
 
 			// Geometry shader starts here
-			GeometryShader = new ShaderProgram(new int[] {
-				ShaderProgram.CreateShader("src/vertex.glsl", ShaderType.VertexShader),
-				ShaderProgram.CreateShader("src/fragment.glsl", ShaderType.FragmentShader)
-			}).use();
-
+			GeometryShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
 
 			DrawableTest = Drawable.CreateDrawablePlane(new Texture[] {
 				new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
@@ -114,13 +128,10 @@ namespace DominusCore
 				new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 				new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 				new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-			}).SetPosition(Vector3.Zero).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(new Vector3(0.5f, 0.5f, 0.5f));
+			}).SetPosition(Vector3.Zero).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(new Vector3(0.99f, 0.99f, 0.99f));
 
 			// Lighting shader starts here
-			LightingShader = new ShaderProgram(new int[] {
-				ShaderProgram.CreateShader("src/vertex_light.glsl", ShaderType.VertexShader),
-				ShaderProgram.CreateShader("src/fragment_light.glsl", ShaderType.FragmentShader)
-			}).use();
+			LightingShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
 
 			FramebufferGeometry = GL.GenFramebuffer();
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
@@ -155,7 +166,7 @@ namespace DominusCore
 				Environment.Exit(0);
 			RenderFrameCount++;
 
-			Matrix4 matrixModel = DrawableTest.SetRotation(new Vector3(0, RenderFrameCount * RCF, 0)).GetModelMatrix();
+			Matrix4 matrixModel = DrawableTest.GetModelMatrix();
 			Matrix4 modelViewTransform = matrixModel * Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 
 			// Geometry pass
