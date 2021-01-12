@@ -77,9 +77,9 @@ namespace DominusCore
 		public Matrix4 GetModelMatrix()
 		{
 			Matrix4 m = Matrix4.CreateScale(Scale);
-			m *= Matrix4.CreateRotationX(Rotation.X);
-			m *= Matrix4.CreateRotationY(Rotation.Y);
-			m *= Matrix4.CreateRotationZ(Rotation.Z);
+			m *= Matrix4.CreateRotationX(Rotation.X * Game.RCF);
+			m *= Matrix4.CreateRotationY(Rotation.Y * Game.RCF);
+			m *= Matrix4.CreateRotationZ(Rotation.Z * Game.RCF);
 			m *= Matrix4.CreateTranslation(Position);
 			return m;
 		}
@@ -88,6 +88,13 @@ namespace DominusCore
 		public Drawable SetScale(Vector3 Scale)
 		{
 			this.Scale = Scale;
+			return this;
+		}
+
+		/// <summary> Chainable method to set the scale of this object in all axis. </summary>
+		public Drawable SetScale(float scale)
+		{
+			this.Scale = new Vector3(scale, scale, scale);
 			return this;
 		}
 

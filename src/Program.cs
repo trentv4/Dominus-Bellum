@@ -76,7 +76,7 @@ namespace DominusCore
 		public static readonly double LogicUpdatePerSecond = 60.0;
 		public static readonly Vector2i WindowSize = new Vector2i(1280, 720);
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
-		const float RCF = 0.017453293f;
+		internal const float RCF = 0.017453293f;
 		/// <summary> Determines if the program will exit on frame 11 (used for RenderDoc) </summary>
 		private static bool autoExit = false;
 
@@ -128,7 +128,7 @@ namespace DominusCore
 				new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 				new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 				new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-			}).SetPosition(Vector3.Zero).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(new Vector3(0.99f, 0.99f, 0.99f));
+			}).SetPosition(new Vector3(0, -2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f);
 
 			// Lighting shader starts here
 			LightingShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
