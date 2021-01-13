@@ -6,6 +6,9 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using OpenTK.Audio.OpenAL.Extensions.EXT.FloatFormat;
+using System.Linq;
 
 namespace DominusCore
 {
@@ -124,6 +127,35 @@ namespace DominusCore
 				0, 1, 3,
 				1, 2, 3
 			}, textures);
+		}
+
+		public static Drawable CreateCircle(int density, Texture[] textures)
+		{
+			List<float> vertexList = new List<float>();
+			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f });
+			for (int i = 1; i <= density; i++)
+			{
+				float angle = Game.RCF * i * (360 / density);
+				vertexList.AddRange(new List<float>{
+					(float) Math.Cos(angle), (float) Math.Sin(angle), 0f,
+					((float) Math.Cos(angle) + 1)/2.0f, ((float) Math.Sin(angle) + 1)/2.0f,
+					1f, 0f, 0f, 1f
+				});
+			}
+
+			uint[] indexList = new uint[3 * (density + 1)];
+			for (uint i = 0; i < density - 1; i++)
+			{
+				indexList[i * 3 + 0] = 0;
+				indexList[i * 3 + 1] = i + 1;
+				indexList[i * 3 + 2] = i + 2;
+			}
+			indexList[density * 3 + 0] = 0;
+			indexList[density * 3 + 1] = 1;
+			indexList[density * 3 + 2] = (uint)density;
+
+
+			return new Drawable(vertexList.ToArray(), indexList, textures);
 		}
 	}
 }

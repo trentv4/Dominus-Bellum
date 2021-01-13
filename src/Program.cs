@@ -100,7 +100,7 @@ namespace DominusCore
 		private int LogicFrameCount = 0;
 
 		/* Debugging */
-		private DominusCore.Drawable DrawableTest;
+		private Drawable[] Scene;
 		private static DebugProc debugCallback = DebugCallback;
 		private static GCHandle debugCallbackHandle;
 
@@ -122,13 +122,22 @@ namespace DominusCore
 			// Geometry shader starts here
 			GeometryShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
 
-			DrawableTest = Drawable.CreateDrawablePlane(new Texture[] {
-				new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
-				new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
-				new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
-				new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
-				new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-			}).SetPosition(new Vector3(0, -2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f);
+			Scene = new Drawable[] {
+				Drawable.CreateDrawablePlane(new Texture[] {
+					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+				}).SetPosition(new Vector3(0, -2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f),
+				Drawable.CreateCircle(100, new Texture[] {
+					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+				}).SetPosition(new Vector3(0, 1, 5)).SetScale(1.0f),
+			};
 
 			// Lighting shader starts here
 			LightingShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
@@ -154,8 +163,10 @@ namespace DominusCore
 			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 9 * sizeof(float), 0 * sizeof(float)); /* xyz  */
 			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 9 * sizeof(float), 3 * sizeof(float)); /* uv   */
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 9 * sizeof(float), 5 * sizeof(float)); /* rgba */
+
 			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
 			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
+
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
 
@@ -166,16 +177,19 @@ namespace DominusCore
 				Environment.Exit(0);
 			RenderFrameCount++;
 
-			Matrix4 matrixModel = DrawableTest.GetModelMatrix();
-			Matrix4 modelViewTransform = matrixModel * Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
+			Matrix4 viewTransform = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 
 			// Geometry pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GeometryShader.use();
-			GL.UniformMatrix4(GeometryShader.UniformModelView_ID, true, ref modelViewTransform);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref MatrixPerspective);
-			DrawableTest.BindAndDraw();
+			foreach (Drawable d in Scene)
+			{
+				Matrix4 mvTransform = d.GetModelMatrix() * viewTransform;
+				GL.UniformMatrix4(GeometryShader.UniformModelView_ID, true, ref mvTransform);
+				d.BindAndDraw();
+			}
 
 			// Lighting pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -236,6 +250,7 @@ namespace DominusCore
 			NativeWindowSettings nws = new NativeWindowSettings();
 			nws.Size = WindowSize;
 			nws.Title = WindowTitle;
+			nws.WindowBorder = WindowBorder.Fixed;
 
 			Console.WriteLine("Creating game object");
 			using (Game g = new Game(gws, nws))
