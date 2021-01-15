@@ -35,10 +35,10 @@ void main()
 	float gloss = gAlbedoSpecVec.w;
 
 	// Light data
-	vec3 Position = vec3(1.0, 0.0, 1.0);
+	vec3 Position = vec3(20.0, 10.0, 5.0);
 	vec3 Color = vec3(1.0, 1.0, 1.0) * 0.7;
 
-	vec3 lighting = albedo * 0.2; // Ambient
+	vec3 lighting = albedo * 0.1; // Ambient
 	vec3 lightDirection = normalize(Position - xyz);
 	vec3 viewDirection = normalize(cameraPosition - xyz);
 	vec3 halfwayDirection = normalize(lightDirection + viewDirection);
@@ -47,7 +47,8 @@ void main()
 	lighting += max(dot(normal, lightDirection), 0.0) * albedo * Color;
 	// Specular
 	lighting += Color * pow(max(dot(normal, halfwayDirection), 0.0), gloss);
-	lighting *= ao;
+	//lighting *= ao;
+	lighting *= 0.8;
 
 	FragColor = vec4(lighting, 1.0);
 }

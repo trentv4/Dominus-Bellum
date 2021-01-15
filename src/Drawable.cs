@@ -50,7 +50,9 @@ namespace DominusCore
 		public void Bind()
 		{
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
-			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject_ID);
+			GL.BindVertexBuffer(0, VertexBufferObject_ID, IntPtr.Zero, 9 * sizeof(float));
+			GL.BindVertexBuffer(1, VertexBufferObject_ID, IntPtr.Add(IntPtr.Zero, 3 * sizeof(float)), 9 * sizeof(float));
+			GL.BindVertexBuffer(2, VertexBufferObject_ID, IntPtr.Add(IntPtr.Zero, 5 * sizeof(float)), 9 * sizeof(float));
 			for (int i = 0; i < textures.Length; i++)
 				textures[i].Bind(i);
 		}
@@ -119,10 +121,10 @@ namespace DominusCore
 		public static Drawable CreateDrawablePlane(Texture[] textures)
 		{
 			return new Drawable(new float[]{
-				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 0.9f,
+				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 0.9f,
+				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 0.9f,
+				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 0.9f,
 			}, new uint[]{
 				0, 1, 3,
 				1, 2, 3
@@ -143,19 +145,17 @@ namespace DominusCore
 				});
 			}
 
-			uint[] indexList = new uint[3 * (density + 1)];
-			for (uint i = 0; i < density - 1; i++)
+			uint[] indexList = new uint[3 * (density)];
+			for (uint i = 0; i < density; i++)
 			{
 				indexList[i * 3 + 0] = 0;
 				indexList[i * 3 + 1] = i + 1;
 				indexList[i * 3 + 2] = i + 2;
 			}
-			indexList[density * 3 + 0] = 0;
-			indexList[density * 3 + 1] = 1;
-			indexList[density * 3 + 2] = (uint)density;
+			indexList[indexList.Length - 1] = 1;
 
-
-			return new Drawable(vertexList.ToArray(), indexList, textures);
+			float[] vertList = vertexList.ToArray();
+			return new Drawable(vertList, indexList, textures);
 		}
 	}
 }

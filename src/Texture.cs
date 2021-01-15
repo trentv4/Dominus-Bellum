@@ -49,7 +49,7 @@ namespace DominusCore
 
 			TextureID = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16, Game.WindowSize.X, Game.WindowSize.Y,
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f, Game.WindowSize.X, Game.WindowSize.Y,
 						  0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[0]);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);

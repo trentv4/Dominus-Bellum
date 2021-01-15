@@ -39,16 +39,18 @@ layout (location = 2) out vec4 gAlbedoSpec; // r, g, b, gloss
 
 void main()
 {
-	vec4 diffuse = texture(map_diffuse, uv);
-	vec4 gloss = texture(map_gloss, uv);
-	vec4 ao = texture(map_ao, uv);
-	vec4 normal = texture(map_normal, uv);
-	vec4 height = texture(map_height, uv);
+	if(position.z < gPosition.z) {
+		vec4 diffuse = texture(map_diffuse, uv);
+		vec4 gloss = texture(map_gloss, uv);
+		vec4 ao = texture(map_ao, uv);
+		vec4 normal = texture(map_normal, uv);
+		vec4 height = texture(map_height, uv);
 
-	gPosition.xyz = position;
-	gPosition.w = ao.x;
-	gNormal.xyz = normal.xyz;
-	gNormal.w = height.x;
-	gAlbedoSpec.rgb = (diffuse.xyz * diffuse.w) + vec3(color * (1-diffuse.w));
-	gAlbedoSpec.a = gloss.x;
+		gPosition.xyz = position;
+		gPosition.w = ao.x * 0.0;
+		gNormal.xyz = normal.xyz;
+		gNormal.w = height.x;
+		gAlbedoSpec.rgb = (diffuse.xyz * diffuse.w) + vec3(color * (1-diffuse.w));
+		gAlbedoSpec.a = gloss.x;
+	}
 }

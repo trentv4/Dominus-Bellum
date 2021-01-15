@@ -91,7 +91,7 @@ namespace DominusCore
 		private int Uniform_Lights;
 
 		/* Camera */
-		private static Vector3 CameraPosition = new Vector3(0.0f, 0.0f, -1.0f);
+		private static Vector3 CameraPosition = new Vector3(20.0f, 5.0f, 3.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
 
@@ -117,7 +117,9 @@ namespace DominusCore
 			GL.DebugMessageCallback(debugCallback, IntPtr.Zero);
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
+			GL.DepthFunc(DepthFunction.Less);
 			GL.Enable(EnableCap.DepthTest);
+
 
 			// Geometry shader starts here
 			GeometryShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
@@ -129,14 +131,14 @@ namespace DominusCore
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(0, -2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f),
-				Drawable.CreateCircle(100, new Texture[] {
+				}).SetPosition(new Vector3(20, 2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f),
+				Drawable.CreateCircle(25, new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(0, 1, 5)).SetScale(1.0f),
+				}).SetPosition(new Vector3(20, 5, 5)).SetScale(1.0f),
 			};
 
 			// Lighting shader starts here
@@ -160,9 +162,9 @@ namespace DominusCore
 			GL.EnableVertexAttribArray(1);
 			GL.EnableVertexAttribArray(2);
 			// Format: [xyz][uv][rgba]. Make sure to keep synced with how data is interleaved in vertex data!
-			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 9 * sizeof(float), 0 * sizeof(float)); /* xyz  */
-			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 9 * sizeof(float), 3 * sizeof(float)); /* uv   */
-			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 9 * sizeof(float), 5 * sizeof(float)); /* rgba */
+			GL.VertexAttribFormat(0, 3, VertexAttribType.Float, false, 0);
+			GL.VertexAttribFormat(1, 2, VertexAttribType.Float, false, 3);
+			GL.VertexAttribFormat(2, 4, VertexAttribType.Float, false, 5);
 
 			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
 			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
