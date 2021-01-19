@@ -50,9 +50,11 @@ namespace DominusCore
 		public void Bind()
 		{
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
-			GL.BindVertexBuffer(0, VertexBufferObject_ID, IntPtr.Zero, 9 * sizeof(float));
-			GL.BindVertexBuffer(1, VertexBufferObject_ID, IntPtr.Add(IntPtr.Zero, 3 * sizeof(float)), 9 * sizeof(float));
-			GL.BindVertexBuffer(2, VertexBufferObject_ID, IntPtr.Add(IntPtr.Zero, 5 * sizeof(float)), 9 * sizeof(float));
+			int stride = 12 * sizeof(float);
+			GL.BindVertexBuffer(0, VertexBufferObject_ID, IntPtr.Zero, stride);
+			GL.BindVertexBuffer(1, VertexBufferObject_ID, (IntPtr)(3 * sizeof(float)), stride);
+			GL.BindVertexBuffer(2, VertexBufferObject_ID, (IntPtr)(5 * sizeof(float)), stride);
+			GL.BindVertexBuffer(3, VertexBufferObject_ID, (IntPtr)(9 * sizeof(float)), stride);
 			for (int i = 0; i < textures.Length; i++)
 				textures[i].Bind(i);
 		}
@@ -121,10 +123,10 @@ namespace DominusCore
 		public static Drawable CreateDrawablePlane(Texture[] textures)
 		{
 			return new Drawable(new float[]{
-				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 1.0f,
+				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 1.0f,
+				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 1.0f,
+				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 1.0f,
 			}, new uint[]{
 				0, 1, 3,
 				1, 2, 3
@@ -134,15 +136,15 @@ namespace DominusCore
 		public static Drawable CreateDrawableCube(Texture[] textures)
 		{
 			return new Drawable(new float[]{
-				1.0f, 1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 0
-				0.0f, 1.0f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 1
-				1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 2
-				0.0f, 0.0f, 0.0f,   0.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 3
+				1.0f, 1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 0
+				0.0f, 1.0f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 1
+				1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 2
+				0.0f, 0.0f, 0.0f,   0.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 3
 				
-				1.0f, 1.0f, 1.0f,   0.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 4
-				0.0f, 1.0f, 1.0f,   1.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 5
-				1.0f, 0.0f, 1.0f,   0.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 6
-				0.0f, 0.0f, 1.0f,   1.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 7
+				1.0f, 1.0f, 1.0f,   0.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 4
+				0.0f, 1.0f, 1.0f,   1.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 5
+				1.0f, 0.0f, 1.0f,   0.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 6
+				0.0f, 0.0f, 1.0f,   1.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 7
 			}, new uint[]{
 				0, 1, 3,
 				0, 2, 3,
@@ -162,14 +164,14 @@ namespace DominusCore
 		public static Drawable CreateCircle(int density, Texture[] textures)
 		{
 			List<float> vertexList = new List<float>();
-			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f });
+			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f, 0.0f, 0.0f, 1.0f, });
 			for (int i = 1; i <= density; i++)
 			{
 				float angle = Game.RCF * i * (360 / density);
 				vertexList.AddRange(new List<float>{
 					(float) Math.Cos(angle), (float) Math.Sin(angle), 0f,
 					((float) Math.Cos(angle) + 1)/2.0f, ((float) Math.Sin(angle) + 1)/2.0f,
-					1f, 0f, 0f, 1f
+					1f, 0f, 0f, 1f, 0.0f, 0.0f, 1.0f,
 				});
 			}
 

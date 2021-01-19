@@ -2,6 +2,7 @@
 layout(location=0) in vec3 _position;
 layout(location=1) in vec2 _uv;
 layout(location=2) in vec4 _color;
+layout(location=3) in vec3 _normal;
 
 uniform mat4 modelView;
 uniform mat4 perspective;
@@ -9,6 +10,7 @@ uniform mat4 perspective;
 out vec2 uv;
 out vec4 color;
 out vec3 position;
+out vec3 normal;
 
 void main()
 {
@@ -18,6 +20,7 @@ void main()
 	position = vec3(pos);
 	uv = _uv;
 	color = _color;
+	normal = _normal;
 }
 
 <split>
@@ -26,6 +29,7 @@ void main()
 in vec2 uv;
 in vec4 color;
 in vec3 position;
+in vec3 normal;
 
 uniform sampler2D map_diffuse;
 uniform sampler2D map_gloss;
@@ -39,18 +43,16 @@ layout (location = 2) out vec4 gAlbedoSpec; // r, g, b, gloss
 
 void main()
 {
-	if(position.z < gPosition.z) {
-		vec4 diffuse = texture(map_diffuse, uv);
-		vec4 gloss = texture(map_gloss, uv);
-		vec4 ao = texture(map_ao, uv);
-		vec4 normal = texture(map_normal, uv);
-		vec4 height = texture(map_height, uv);
+	vec4 diffuse = texture(map_diffuse, uv);
+	vec4 gloss = texture(map_gloss, uv);
+	vec4 ao = texture(map_ao, uv);
+	vec4 normalT = texture(map_normal, uv);
+	vec4 height = texture(map_height, uv);
 
-		gPosition.xyz = position;
-		gPosition.w = ao.x * 0.0;
-		gNormal.xyz = normal.xyz;
-		gNormal.w = height.x;
-		gAlbedoSpec.rgb = (diffuse.xyz * diffuse.w) + vec3(color * (1-diffuse.w));
-		gAlbedoSpec.a = gloss.x;
-	}
+	gPosition.xyz = position;
+	gPosition.w = ao.x;
+	gNormal.xyz = normalT.xyz * normal;
+	gNormal.w = height.x;
+	gAlbedoSpec.rgb = (diffuse.xyz * diffuse.w) + vec3(color * (1-diffuse.w));
+	gAlbedoSpec.a = gloss.x;
 }

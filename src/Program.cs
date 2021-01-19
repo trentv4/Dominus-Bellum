@@ -122,35 +122,36 @@ namespace DominusCore
 			// Geometry shader starts here
 			GeometryShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
 
-			Scene = new Drawable[] {
-				Drawable.CreateCircle(90, new Texture[] {
+			Drawable circle = Drawable.CreateCircle(90, new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 8, 5)).SetScale(1.0f),
-				Drawable.CreateDrawablePlane(new Texture[] {
+				}).SetPosition(new Vector3(20, 4, 5)).SetScale(1.0f);
+			Drawable plane = Drawable.CreateDrawablePlane(new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f),
-				Drawable.CreateDrawableCube(new Texture[] {
+				}).SetPosition(new Vector3(20, 2, 10)).SetScale(10.0f);
+			Drawable cube = Drawable.CreateDrawableCube(new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 4, 5)),
-				Drawable.CreateDrawableCube(new Texture[] {
+				}).SetPosition(new Vector3(20, 4, 5));
+			Drawable lightCube = Drawable.CreateDrawableCube(new Texture[] {
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f),
+				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
+			Scene = new Drawable[] {
+				plane, lightCube, circle
 			};
 
 			// Lighting shader starts here
@@ -182,6 +183,11 @@ namespace DominusCore
 			GL.EnableVertexAttribArray(0);
 			GL.EnableVertexAttribArray(1);
 			GL.EnableVertexAttribArray(2);
+			GL.EnableVertexAttribArray(3);
+			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 0 * sizeof(float)); /* xyz  */
+			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 12 * sizeof(float), 3 * sizeof(float)); /* uv   */
+			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 12 * sizeof(float), 5 * sizeof(float)); /* rgba */
+			GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 9 * sizeof(float)); /* normal */
 
 			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
 			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
