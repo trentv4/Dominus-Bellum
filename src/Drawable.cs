@@ -21,7 +21,7 @@ namespace DominusCore
 		public readonly int VertexBufferObject_ID;
 		private readonly Texture[] textures;
 
-		public Vector3 Scale { get; private set; } = Vector3.Zero;
+		public Vector3 Scale { get; private set; } = new Vector3(1, 1, 1);
 		public Vector3 Rotation { get; private set; } = Vector3.Zero;
 		public Vector3 Position { get; private set; } = Vector3.Zero;
 
@@ -121,13 +121,41 @@ namespace DominusCore
 		public static Drawable CreateDrawablePlane(Texture[] textures)
 		{
 			return new Drawable(new float[]{
-				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 0.9f,
-				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 0.9f,
-				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 0.9f,
-				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 0.9f,
+				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+				-1.0f,  1.0f, 0.0f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,
 			}, new uint[]{
 				0, 1, 3,
 				1, 2, 3
+			}, textures);
+		}
+
+		public static Drawable CreateDrawableCube(Texture[] textures)
+		{
+			return new Drawable(new float[]{
+				1.0f, 1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 0
+				0.0f, 1.0f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 1
+				1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 2
+				0.0f, 0.0f, 0.0f,   0.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f, // 3
+				
+				1.0f, 1.0f, 1.0f,   0.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 4
+				0.0f, 1.0f, 1.0f,   1.0f, 0.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 5
+				1.0f, 0.0f, 1.0f,   0.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 6
+				0.0f, 0.0f, 1.0f,   1.0f, 1.0f,   1.0f, 0.0f, 1.0f, 1.0f, // 7
+			}, new uint[]{
+				0, 1, 3,
+				0, 2, 3,
+				4, 5, 7,
+				4, 6, 7,
+				2, 0, 4,
+				2, 6, 4,
+				3, 7, 5,
+				3, 1, 5,
+				4, 1, 5,
+				4, 1, 0,
+				3, 6, 7,
+				3, 6, 2,
 			}, textures);
 		}
 
