@@ -117,14 +117,19 @@ namespace DominusCore
 			GL.DebugMessageCallback(debugCallback, IntPtr.Zero);
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
-			GL.DepthFunc(DepthFunction.Less);
 			GL.Enable(EnableCap.DepthTest);
-
 
 			// Geometry shader starts here
 			GeometryShader = new ShaderProgram(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
 
 			Scene = new Drawable[] {
+				Drawable.CreateCircle(90, new Texture[] {
+					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+				}).SetPosition(new Vector3(20, 8, 5)).SetScale(1.0f),
 				Drawable.CreateDrawablePlane(new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
@@ -132,13 +137,20 @@ namespace DominusCore
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
 				}).SetPosition(new Vector3(20, 2, 5)).SetRotation(new Vector3(90.0f, 0.0f, 0.0f)).SetScale(10.0f),
-				Drawable.CreateCircle(25, new Texture[] {
+				Drawable.CreateDrawableCube(new Texture[] {
 					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 5, 5)).SetScale(1.0f),
+				}).SetPosition(new Vector3(20, 4, 5)),
+				Drawable.CreateDrawableCube(new Texture[] {
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f),
 			};
 
 			// Lighting shader starts here
@@ -151,6 +163,15 @@ namespace DominusCore
 				new Texture(1, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gNormal")),
 				new Texture(2, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gAlbedoSpec")),
 			};
+			int depth = GL.GenTexture();
+			GL.BindTexture(TextureTarget.Texture2D, depth);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, Game.WindowSize.X, Game.WindowSize.Y,
+						  0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
+									TextureTarget.Texture2D, depth, 0);
+
 			DrawBuffersEnum[] attachments = new DrawBuffersEnum[FramebufferTextures.Length];
 			for (int i = 0; i < attachments.Length; i++)
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
@@ -161,10 +182,6 @@ namespace DominusCore
 			GL.EnableVertexAttribArray(0);
 			GL.EnableVertexAttribArray(1);
 			GL.EnableVertexAttribArray(2);
-			// Format: [xyz][uv][rgba]. Make sure to keep synced with how data is interleaved in vertex data!
-			GL.VertexAttribFormat(0, 3, VertexAttribType.Float, false, 0);
-			GL.VertexAttribFormat(1, 2, VertexAttribType.Float, false, 3);
-			GL.VertexAttribFormat(2, 4, VertexAttribType.Float, false, 5);
 
 			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
 			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
@@ -227,7 +244,7 @@ namespace DominusCore
 		protected override void OnResize(ResizeEventArgs e)
 		{
 			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
-			MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, WindowSize.X / WindowSize.Y, 0.001f, 100.0f);
+			MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)WindowSize.X / (float)WindowSize.Y, 0.001f, 100.0f);
 		}
 
 		/// <summary> Handles all debug callbacks from OpenGL and throws exceptions if unhandled. </summary>
