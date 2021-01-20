@@ -36,7 +36,7 @@ void main()
 	float gloss = gAlbedoSpecVec.w;
 
 	// Light data
-	vec3 Position = vec3(-10.0, 0.0, -3.0);
+	vec3 Position = vec3(20, 5, 6);
 	vec3 Color = vec3(1.0, 1.0, 1.0);
 
 	vec3 lightDirection = normalize(Position - xyz);
@@ -51,7 +51,7 @@ void main()
 	vec3 ambientOcclusion = vec3(ao, ao, ao);
 
 	// final
-	vec3 HDR = (ambient + diffuse + specular) * ao * 1.0;
+	vec3 HDR = (ambient + (diffuse * ao) + specular) * 1.0;
 	vec3 LDR = pow(HDR / (HDR + vec3(1.0)), vec3(1.0 / 2.2));
 
 	FragColor = vec4(HDR, 1.0);

@@ -12,7 +12,8 @@ namespace DominusCore
 	struct ShaderProgram
 	{
 		public readonly int ShaderProgram_ID;
-		public readonly int UniformModelView_ID;
+		public readonly int UniformModel_ID;
+		public readonly int UniformView_ID;
 		public readonly int UniformPerspective_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
@@ -27,7 +28,8 @@ namespace DominusCore
 			foreach (int i in shaders)
 				GL.DeleteShader(i);
 
-			UniformModelView_ID = GL.GetUniformLocation(ShaderProgram_ID, "modelView");
+			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
+			UniformView_ID = GL.GetUniformLocation(ShaderProgram_ID, "view");
 			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
 		}
 
@@ -142,7 +144,7 @@ namespace DominusCore
 					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
 					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
 					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 4, 5));
+				}).SetPosition(new Vector3(20, 4, 5)).SetScale(new Vector3(0.25f, 0.25f, 0.25f));
 			Drawable lightCube = Drawable.CreateDrawableCube(new Texture[] {
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
 					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
@@ -202,17 +204,18 @@ namespace DominusCore
 				Environment.Exit(0);
 			RenderFrameCount++;
 
-			Matrix4 viewTransform = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
+			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 
 			// Geometry pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GeometryShader.use();
+			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref MatrixPerspective);
 			foreach (Drawable d in Scene)
 			{
-				Matrix4 mvTransform = d.GetModelMatrix() * viewTransform;
-				GL.UniformMatrix4(GeometryShader.UniformModelView_ID, true, ref mvTransform);
+				Matrix4 MatrixModel = d.GetModelMatrix();
+				GL.UniformMatrix4(GeometryShader.UniformModel_ID, true, ref MatrixModel);
 				d.BindAndDraw();
 			}
 
