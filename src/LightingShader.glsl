@@ -49,14 +49,16 @@ void main()
 
 	// Light data
 	for(int i = 0; i < 16; i++) {
+		vec3 result = vec3(0.0);
+
 		vec3 Position = lights[i].position;
 		vec3 Color = lights[i].color;
-		vec3 result = vec3(0.0);
+		vec3 Direction = lights[i].direction;
 
 		vec3 lightDirection = normalize(Position - xyz);
 		vec3 viewDirection = normalize(cameraPosition - xyz);
 		vec3 halfwayDirection = normalize(lightDirection + viewDirection);
-		
+
 		// Diffuse
 		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * Color;
 		// Specularity
@@ -65,6 +67,11 @@ void main()
 		result *= lights[i].strength;
 		// Attenuation
 		result *= 1 / pow(((distance(Position, xyz) / 6) + 1), 2);
+		// Spotlight attenuation
+		if(Direction != vec3(0)) {
+			result *= max(pow(dot(lightDirection, normalize(Direction)), 8), 0);
+		}
+
 		HDR += result;
 	}
 

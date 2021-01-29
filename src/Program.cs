@@ -30,7 +30,7 @@ namespace DominusCore
 		private Texture[] FramebufferTextures;
 
 		/* Camera */
-		private static Vector3 CameraPosition = new Vector3(20.0f, 5.0f, 3.0f);
+		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
 
@@ -161,12 +161,18 @@ namespace DominusCore
 			for (int i = 0; i < FramebufferTextures.Length; i++)
 				FramebufferTextures[i].Bind(i);
 
-			LightingShader.setLightUniform(0, 5f,
-										new Vector3(20f, 5f + (float)(8 * Math.Sin(RenderFrameCount * RCF)), 6f),
+			float outputSin = (float)Math.Sin(RenderFrameCount * RCF);
+			LightingShader.setLightUniform(0, 3f,
+										new Vector3(10f, 5f + (outputSin * 8), 6f),
 										Vector3.One, Vector3.Zero);
 			LightingShader.setLightUniform(1, 2.0f,
-										new Vector3(20f + (float)(5 * Math.Sin(RenderFrameCount * RCF)), 0f, 6f),
+										new Vector3(20f + (5 * outputSin), -10f, 6f),
 										new Vector3(0.0f, 0.5f, 1.0f), Vector3.Zero);
+			LightingShader.setLightUniform(2, 5.5f,
+										new Vector3(20f, 0f, 6f),
+										new Vector3(1.0f, 0.0f, 0.0f),
+										new Vector3(outputSin * 2, 0, -1));
+
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 
 			Context.SwapBuffers();
