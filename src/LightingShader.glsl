@@ -35,23 +35,16 @@ void main()
 	float height = gNormalVec.w;
 	float gloss = gAlbedoSpecVec.w;
 
+	vec3 HDR = vec3(0.0);
+
 	// Light data
 	vec3 Position = vec3(20, 5, 6);
 	vec3 Color = vec3(1.0, 1.0, 1.0);
 
 	vec3 lightDirection = normalize(Position - xyz);
-	vec3 viewDirection = normalize(cameraPosition - xyz);
-	vec3 halfwayDirection = normalize(lightDirection + viewDirection);
-	float specularStrength = 0.5;
+	HDR += albedo * 0.1;
+	HDR += max(dot(normal, lightDirection), 0.0) * albedo * ao;
 
-	// intermediate
-	vec3 ambient = albedo * 0.1;
-	vec3 diffuse = max(dot(normal, lightDirection), 0.0) * albedo;
-	vec3 specular = pow(max(dot(normal, halfwayDirection), 0.0), 16) * Color * specularStrength;
-	vec3 ambientOcclusion = vec3(ao, ao, ao);
-
-	// final
-	vec3 HDR = (ambient + (diffuse * ao) + specular) * 1.0;
 	vec3 LDR = pow(HDR / (HDR + vec3(1.0)), vec3(1.0 / 2.2));
 
 	FragColor = vec4(HDR, 1.0);
