@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -8,6 +10,7 @@ namespace DominusCore
 	/// <summary> Class that wraps and provides helper methods for OpenGL textures and framebuffer textures. </summary>
 	internal class Texture
 	{
+		private static readonly Dictionary<string, int> LOADED_TEXTURES = new Dictionary<string, int>();
 		/// <summary> OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x. </summary>
 		private readonly float MaxAnisotrophy = GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy);
 		/// <summary> OpenGL ID assigned via GL.GenTexture() to this texture. </summary>
@@ -19,26 +22,32 @@ namespace DominusCore
 		public Texture(string location, int uniform)
 		{
 			UniformLocation = uniform;
-
-			ImageResult image;
-			using (FileStream stream = File.OpenRead(location))
+			if (LOADED_TEXTURES.ContainsKey(location))
 			{
-				image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+				this.TextureID = LOADED_TEXTURES[location];
 			}
+			else
+			{
+				ImageResult image;
+				using (FileStream stream = File.OpenRead(location))
+				{
+					image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+				}
 
-			float anisotropicLevel = MathHelper.Clamp(16, 1f, MaxAnisotrophy);
+				float anisotropicLevel = MathHelper.Clamp(16, 1f, MaxAnisotrophy);
 
-			TextureID = GL.GenTexture();
-			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-			GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)All.TextureMaxAnisotropy, anisotropicLevel);
+				TextureID = GL.GenTexture();
+				GL.BindTexture(TextureTarget.Texture2D, TextureID);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+				GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)All.TextureMaxAnisotropy, anisotropicLevel);
 
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
-						  image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
-			GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-
+				GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+							  image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
+				GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+				LOADED_TEXTURES.Add(location, TextureID);
+			}
 		}
 
 		/// <summary> Creates a Framebuffer texture, NOT MEANT FOR USE ON MODELS. Does not use anisotropic filtering.
