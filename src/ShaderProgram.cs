@@ -87,13 +87,47 @@ namespace DominusCore
 
 	public class ShaderProgramLighting : ShaderProgram
 	{
-		public readonly int UniformLights_ID;
+		public struct LightUniforms
+		{
+			public int position;
+			public int color;
+			public int direction;
+			public int strength;
+
+			public LightUniforms(int position, int color, int direction, int strength)
+			{
+				this.position = position;
+				this.color = color;
+				this.direction = direction;
+				this.strength = strength;
+			}
+		}
+
+		private readonly static int LIGHT_COUNT = 16;
+		public readonly LightUniforms[] UniformLights_ID = new LightUniforms[LIGHT_COUNT];
+		public readonly int UniformCameraPosition_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
 		public ShaderProgramLighting(int[] shaders) : base(shaders)
 		{
-			UniformLights_ID = GL.GetUniformLocation(ShaderProgram_ID, "light");
+			for (int i = 0; i < 16; i++)
+			{
+				UniformLights_ID[i] = new LightUniforms(
+					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].position"),
+					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].color"),
+					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].direction"),
+					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].strength"));
+			}
+			UniformCameraPosition_ID = GL.GetUniformLocation(ShaderProgram_ID, "cameraPosition");
+		}
+
+		public void setLightUniform(int i, float strength, Vector3 position, Vector3 color, Vector3 direction)
+		{
+			GL.Uniform3(UniformLights_ID[i].position, position.X, position.Y, position.Z);
+			GL.Uniform3(UniformLights_ID[i].color, color.X, color.Y, color.Z);
+			GL.Uniform3(UniformLights_ID[i].direction, direction.X, direction.Y, direction.Z);
+			GL.Uniform1(UniformLights_ID[i].strength, strength);
 		}
 
 		public new ShaderProgramLighting use()

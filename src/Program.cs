@@ -28,8 +28,6 @@ namespace DominusCore
 		private static Matrix4 MatrixPerspective;
 		private int FramebufferGeometry;
 		private Texture[] FramebufferTextures;
-		private int Uniform_CameraPosition;
-		private int Uniform_Lights;
 
 		/* Camera */
 		private static Vector3 CameraPosition = new Vector3(20.0f, 5.0f, 3.0f);
@@ -130,9 +128,6 @@ namespace DominusCore
 			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 12 * sizeof(float), 5 * sizeof(float)); /* rgba */
 			GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 9 * sizeof(float)); /* normal */
 
-			Uniform_CameraPosition = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "cameraPosition");
-			Uniform_Lights = GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "lights");
-
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
 
@@ -162,9 +157,16 @@ namespace DominusCore
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
-			GL.Uniform3(Uniform_CameraPosition, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
+			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
 			for (int i = 0; i < FramebufferTextures.Length; i++)
 				FramebufferTextures[i].Bind(i);
+
+			LightingShader.setLightUniform(0, 5f,
+										new Vector3(20f, 5f + (float)(8 * Math.Sin(RenderFrameCount * RCF)), 6f),
+										Vector3.One, Vector3.Zero);
+			LightingShader.setLightUniform(1, 2.0f,
+										new Vector3(20f + (float)(5 * Math.Sin(RenderFrameCount * RCF)), 0f, 6f),
+										new Vector3(0.0f, 0.5f, 1.0f), Vector3.Zero);
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 
 			Context.SwapBuffers();

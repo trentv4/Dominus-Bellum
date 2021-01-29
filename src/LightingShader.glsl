@@ -22,6 +22,14 @@ uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec; 
 uniform vec3 cameraPosition;
 
+struct PointLight {
+	vec3 position;
+	vec3 color;
+	vec3 direction;
+	float strength;
+};
+uniform PointLight lights[16];
+
 void main()
 {
 	vec4 gPositionVec = texture(gPosition, uv);
@@ -36,16 +44,29 @@ void main()
 	float gloss = gAlbedoSpecVec.w;
 
 	vec3 HDR = vec3(0.0);
+	// Ambient
+	HDR += albedo * 0.1;
 
 	// Light data
-	vec3 Position = vec3(20, 5, 6);
-	vec3 Color = vec3(1.0, 1.0, 1.0);
+	for(int i = 0; i < 16; i++) {
+		vec3 Position = lights[i].position;
+		vec3 Color = lights[i].color;
+		vec3 result = vec3(0.0);
 
-	vec3 lightDirection = normalize(Position - xyz);
-	HDR += albedo * 0.1;
-	HDR += max(dot(normal, lightDirection), 0.0) * albedo * ao;
-
-	vec3 LDR = pow(HDR / (HDR + vec3(1.0)), vec3(1.0 / 2.2));
+		vec3 lightDirection = normalize(Position - xyz);
+		vec3 viewDirection = normalize(cameraPosition - xyz);
+		vec3 halfwayDirection = normalize(lightDirection + viewDirection);
+		
+		// Diffuse
+		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * Color;
+		// Specularity
+		result += gloss * Color * pow(max(dot(normal, halfwayDirection), 0.0), 32);
+		// Strength
+		result *= lights[i].strength;
+		// Attenuation
+		result *= 1 / pow(((distance(Position, xyz) / 6) + 1), 2);
+		HDR += result;
+	}
 
 	FragColor = vec4(HDR, 1.0);
 }
