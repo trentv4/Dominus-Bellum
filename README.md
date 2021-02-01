@@ -2,7 +2,7 @@
 
 > Design document by Trent VanSlyke 
 >
-> Initial draft: 12/27/2020 - Last update: 12/27/2020
+> Initial draft: 12/27/2020 - Last update: 2/1/2020
 > 
 > Reviewers: N/A
 >
@@ -43,8 +43,8 @@ This task list is **incomplete** and used merely as a tracker that can be expand
 
 - [ ] Minimum viable product (functional game)
   - [ ] Display
-    - [ ] Simple unit
-    - [ ] Unit with lighting
+    - [x] Simple unit
+    - [x] Unit with lighting
     - [ ] Squad of multiple of same unit
     - [ ] Different kinds of unit at same time
     - [ ] Level display
