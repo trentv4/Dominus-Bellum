@@ -8,17 +8,16 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 perspective;
 
+out vec3 position;
 out vec2 uv;
 out vec4 color;
-out vec3 position;
 out vec3 normal;
 
-void main()
-{
+void main() {
 	vec4 pos = vec4(_position, 1.0) * model;
 	gl_Position = pos * view * perspective;
-
 	position = vec3(pos);
+
 	uv = _uv;
 	color = _color;
 	normal = _normal;
@@ -42,8 +41,7 @@ layout (location = 0) out vec4 gPosition; // x, y, z, ambient occlusion
 layout (location = 1) out vec4 gNormal; // normal X, normal Y, normal Z, height
 layout (location = 2) out vec4 gAlbedoSpec; // r, g, b, gloss
 
-void main()
-{
+void main() {
 	vec4 diffuse = texture(map_diffuse, uv);
 	vec4 gloss = texture(map_gloss, uv);
 	vec4 ao = texture(map_ao, uv);

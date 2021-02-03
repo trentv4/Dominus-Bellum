@@ -7,11 +7,9 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
 
-namespace DominusCore
-{
-	public class Game : GameWindow
-	{
-		/* Constants */
+namespace DominusCore {
+	public class Game : GameWindow {
+		// Constants
 		public static readonly string WindowTitle = "Display";
 		public static readonly double RenderUpdatePerSecond = 0.0;
 		public static readonly double LogicUpdatePerSecond = 60.0;
@@ -21,7 +19,7 @@ namespace DominusCore
 		/// <summary> Determines if the program will exit on frame 11 (used for RenderDoc) </summary>
 		private static bool autoExit = false;
 
-		/* Rendering */
+		// Rendering
 		public static ShaderProgramGeometry GeometryShader;
 		public static ShaderProgramLighting LightingShader;
 		public static ShaderProgram CurrentShader;
@@ -29,18 +27,18 @@ namespace DominusCore
 		private static Matrix4 MatrixPerspective;
 		private int FramebufferGeometry;
 		private Texture[] FramebufferTextures;
+		private Drawable SceneRoot;
 
-		/* Camera */
+		// Camera
 		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
 
-		/* Counters */
+		// Counters
 		private int RenderFrameCount = 0;
 		private int LogicFrameCount = 0;
 
-		/* Debugging */
-		private Drawable SceneRoot;
+		// Debugging
 		private Light[] SceneLights;
 		private static DebugProc debugCallback = DebugCallback;
 		private static GCHandle debugCallbackHandle;
@@ -49,8 +47,7 @@ namespace DominusCore
 
 		/// <summary> Handles all graphics setup processing: creates shader program, drawables, sets flags, sets attribs.
 		/// <br/> THREAD: OpenGL </summary>
-		protected override void OnRenderThreadStarted()
-		{
+		protected override void OnRenderThreadStarted() {
 			Console.WriteLine("OnRenderThreadStarted(): start");
 
 			// Misc GL flags and callbacks
@@ -60,48 +57,7 @@ namespace DominusCore
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
 
-			// Geometry shader starts here
 			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
-
-			Model circle = Model.CreateCircle(90, new Texture[] {
-					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
-					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
-					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
-					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
-					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 4, 5)).SetScale(1.0f);
-			Model plane = Model.CreateDrawablePlane(new Texture[] {
-					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
-					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
-					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
-					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
-					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 2, 10)).SetScale(10.0f);
-			Model cube = Model.CreateDrawableCube(new Texture[] {
-					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
-					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
-					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
-					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
-					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 4, 5)).SetScale(new Vector3(0.25f, 0.25f, 0.25f));
-			Model lightCube = Model.CreateDrawableCube(new Texture[] {
-					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
-					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
-					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
-					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
-					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
-				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
-			SceneLights = new Light[] {
-				new Light(new Vector3(10f, 5f, 6f), Vector3.One, 3f),
-				new Light(new Vector3(20f, 5f, -10f), new Vector3(0.0f, 0.5f, 1.0f), 2f),
-				new Light(new Vector3(20f, 0f, 6f), new Vector3(1.0f, 0.0f, 0.0f), new Vector3(1, 0, -1), 5.5f),
-			};
-
-			SceneRoot = new Drawable();
-			SceneRoot.AddChildren(plane, lightCube, circle);
-			SceneRoot.AddChildren(SceneLights);
-
-			// Lighting shader starts here
 			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
 
 			// Framebuffer setup for the geometry -> lighting shader
@@ -125,6 +81,8 @@ namespace DominusCore
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
 			GL.DrawBuffers(attachments.Length, attachments);
 
+			ConstructScene();
+
 			// Universal VAO setup
 			int VertexArrayObject_ID = GL.GenVertexArray();
 			GL.BindVertexArray(VertexArrayObject_ID);
@@ -141,8 +99,7 @@ namespace DominusCore
 		}
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
-		protected override void OnRenderFrame(FrameEventArgs args)
-		{
+		protected override void OnRenderFrame(FrameEventArgs args) {
 			// This is for RenderDoc so I can snapshot & automatically exit 
 			if (autoExit & RenderFrameCount == 10)
 				Environment.Exit(0);
@@ -177,9 +134,39 @@ namespace DominusCore
 			Context.SwapBuffers();
 		}
 
+		/// <summary> Constructs the initial game scene and sets SceneRoot to it. </summary>
+		private void ConstructScene() {
+			Texture[] tilesTextures = {
+					new Texture("assets/tiles_diffuse.jpg", GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_gloss.jpg",   GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_ao.jpg",      GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_normal.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_height.jpg",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+			};
+			Model circle = Model.CreateCircle(90, tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(1.0f);
+			Model plane = Model.CreateDrawablePlane(tilesTextures).SetPosition(new Vector3(20, 2, 10)).SetScale(10.0f);
+			Model cube = Model.CreateDrawableCube(tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(new Vector3(0.25f, 0.25f, 0.25f));
+			Model lightCube = Model.CreateDrawableCube(new Texture[] {
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_diffuse")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_gloss")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_ao")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_normal")),
+					new Texture("assets/tiles_blank.png",  GL.GetUniformLocation(GeometryShader.ShaderProgram_ID, "map_height"))
+				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
+
+			SceneLights = new Light[] {
+				new Light(new Vector3(10f, 5f, 6f), Vector3.One, 3f),
+				new Light(new Vector3(20f, 5f, -10f), new Vector3(0.0f, 0.5f, 1.0f), 2f),
+				new Light(new Vector3(20f, 0f, 6f), new Vector3(1.0f, 0.0f, 0.0f), new Vector3(1, 0, -1), 5.5f),
+			};
+
+			SceneRoot = new Drawable();
+			SceneRoot.AddChildren(plane, lightCube, circle);
+			SceneRoot.AddChildren(SceneLights);
+		}
+
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
-		protected override void OnUpdateFrame(FrameEventArgs args)
-		{
+		protected override void OnUpdateFrame(FrameEventArgs args) {
 			LogicFrameCount++;
 			// All of the following are in the set [-1, 0, 1] which is used to calculate movement.
 			int ws = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.W)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.S));
@@ -194,25 +181,21 @@ namespace DominusCore
 			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), CameraTarget.Y, (float)Math.Sin(CameraAngle * RCF));
 		}
 
-
 		/// <summary> Handles resizing and keeping GLViewport correct</summary>
-		protected override void OnResize(ResizeEventArgs e)
-		{
+		protected override void OnResize(ResizeEventArgs e) {
 			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
 			MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)WindowSize.X / (float)WindowSize.Y, 0.001f, 100.0f);
 		}
 
 		/// <summary> Handles all debug callbacks from OpenGL and throws exceptions if unhandled. </summary>
-		private static void DebugCallback(DebugSource source, DebugType type, int id, DebugSeverity severity, int length, IntPtr message, IntPtr userParam)
-		{
+		private static void DebugCallback(DebugSource source, DebugType type, int id, DebugSeverity severity, int length, IntPtr message, IntPtr userParam) {
 			string messageString = Marshal.PtrToStringAnsi(message, length);
 			Console.WriteLine($"{severity} {type} | {messageString}");
 			if (type == DebugType.DebugTypeError)
 				throw new Exception(messageString);
 		}
 
-		public static void Main(string[] args)
-		{
+		public static void Main(string[] args) {
 			if (args.Length != 0)
 				autoExit = true;
 			Console.WriteLine("Initializing");
@@ -227,8 +210,7 @@ namespace DominusCore
 			nws.WindowBorder = WindowBorder.Fixed;
 
 			Console.WriteLine("Creating game object");
-			using (Game g = new Game(gws, nws))
-			{
+			using (Game g = new Game(gws, nws)) {
 				g.Run();
 			}
 		}

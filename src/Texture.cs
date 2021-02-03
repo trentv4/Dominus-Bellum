@@ -5,11 +5,10 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using StbImageSharp;
 
-namespace DominusCore
-{
+namespace DominusCore {
 	/// <summary> Class that wraps and provides helper methods for OpenGL textures and framebuffer textures. </summary>
-	internal class Texture
-	{
+	internal class Texture {
+		/// <summary> Dictionary to associate filesystem links to OpenGL texture IDs to prevent costly reloads. </summary>
 		private static readonly Dictionary<string, int> LOADED_TEXTURES = new Dictionary<string, int>();
 		/// <summary> OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x. </summary>
 		private readonly float MaxAnisotrophy = GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy);
@@ -19,18 +18,14 @@ namespace DominusCore
 		private readonly int UniformLocation;
 
 		/// <summary> Creates a texture using anisotropic filtering, primarily meant for regular texture use. </summary>
-		public Texture(string location, int uniform)
-		{
+		public Texture(string location, int uniform) {
 			UniformLocation = uniform;
-			if (LOADED_TEXTURES.ContainsKey(location))
-			{
+
+			if (LOADED_TEXTURES.ContainsKey(location)) {
 				this.TextureID = LOADED_TEXTURES[location];
-			}
-			else
-			{
+			} else {
 				ImageResult image;
-				using (FileStream stream = File.OpenRead(location))
-				{
+				using (FileStream stream = File.OpenRead(location)) {
 					image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 				}
 
@@ -42,18 +37,17 @@ namespace DominusCore
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
 				GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)All.TextureMaxAnisotropy, anisotropicLevel);
-
 				GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
 							  image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
 				GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+
 				LOADED_TEXTURES.Add(location, TextureID);
 			}
 		}
 
 		/// <summary> Creates a Framebuffer texture, NOT MEANT FOR USE ON MODELS. Does not use anisotropic filtering.
 		/// <br/>The colorAttachment parameter is used as an offset from FramebufferAttachment.ColorAttachment0.</summary>
-		public Texture(int colorAttachment, int UniformLocation)
-		{
+		public Texture(int colorAttachment, int UniformLocation) {
 			this.UniformLocation = UniformLocation;
 
 			TextureID = GL.GenTexture();
@@ -68,8 +62,7 @@ namespace DominusCore
 
 		/// <summary> Binds the texture to specified texture unit. 
 		/// <br/>The textureUnit parameter used as an offset from TextureUnit.Texture0. </summary>
-		public void Bind(int textureUnit)
-		{
+		public void Bind(int textureUnit) {
 			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
 			GL.Uniform1(UniformLocation, textureUnit);

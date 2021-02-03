@@ -1,8 +1,7 @@
 #version 330 core
 out vec2 uv;
 
-void main()
-{
+void main() {
 	float x = -1.0 + float((gl_VertexID & 1) << 2);
 	float y = -1.0 + float((gl_VertexID & 2) << 1);
 	uv.x = (x + 1.0) * 0.5;
@@ -13,25 +12,24 @@ void main()
 <split>
 
 #version 330 core
-in vec2 uv;
-
-out vec4 FragColor;
-
-uniform sampler2D gPosition; 
-uniform sampler2D gNormal; 
-uniform sampler2D gAlbedoSpec; 
-uniform vec3 cameraPosition;
-
-struct PointLight {
+struct Light {
 	vec3 position;
 	vec3 color;
 	vec3 direction;
 	float strength;
 };
-uniform PointLight lights[16];
 
-void main()
-{
+in vec2 uv;
+
+uniform sampler2D gPosition; 
+uniform sampler2D gNormal; 
+uniform sampler2D gAlbedoSpec; 
+uniform vec3 cameraPosition;
+uniform Light lights[16];
+
+out vec4 FragColor;
+
+void main() {
 	vec4 gPositionVec = texture(gPosition, uv);
 	vec4 gNormalVec = texture(gNormal, uv);
 	vec4 gAlbedoSpecVec = texture(gAlbedoSpec, uv);
@@ -47,29 +45,34 @@ void main()
 	// Ambient
 	HDR += albedo * 0.1;
 
-	// Light data
+	// Processing all lights in the scene
 	for(int i = 0; i < 16; i++) {
+		vec3 position = lights[i].position;
+		vec3 color = lights[i].color;
+		vec3 direction = lights[i].direction;
+		float strength = lights[i].strength;
+
+		if(strength == 0.0) {
+			continue;
+		}
+
 		vec3 result = vec3(0.0);
 
-		vec3 Position = lights[i].position;
-		vec3 Color = lights[i].color;
-		vec3 Direction = lights[i].direction;
-
-		vec3 lightDirection = normalize(Position - xyz);
+		vec3 lightDirection = normalize(position - xyz);
 		vec3 viewDirection = normalize(cameraPosition - xyz);
 		vec3 halfwayDirection = normalize(lightDirection + viewDirection);
 
 		// Diffuse
-		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * Color;
+		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * color;
 		// Specularity
-		result += gloss * Color * pow(max(dot(normal, halfwayDirection), 0.0), 32);
+		result += gloss * color * pow(max(dot(normal, halfwayDirection), 0.0), 32);
 		// Strength
-		result *= lights[i].strength;
+		result *= strength;
 		// Attenuation
-		result *= 1 / pow(((distance(Position, xyz) / 6) + 1), 2);
+		result *= 1 / pow(((distance(position, xyz) / 6) + 1), 2);
 		// Spotlight attenuation
-		if(Direction != vec3(0)) {
-			result *= max(pow(dot(lightDirection, normalize(Direction)), 8), 0);
+		if(direction != vec3(0)) {
+			result *= max(pow(dot(lightDirection, normalize(direction)), 8), 0);
 		}
 
 		HDR += result;
