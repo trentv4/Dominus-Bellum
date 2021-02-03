@@ -48,12 +48,12 @@ void main() {
 	// Processing all lights in the scene
 	for(int i = 0; i < 16; i++) {
 		float strength = lights[i].strength;
+		vec3 position = lights[i].position;
 		float attenuation = 1 / pow(((distance(position, xyz) / 6) + 1), 2);
 		if(strength == 0.0 || attenuation < 0.001) {
 			continue;
 		}
 
-		vec3 position = lights[i].position;
 		vec3 color = lights[i].color;
 		vec3 direction = lights[i].direction;
 
