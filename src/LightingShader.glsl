@@ -47,14 +47,16 @@ void main() {
 
 	// Processing all lights in the scene
 	for(int i = 0; i < 16; i++) {
+		float strength = lights[i].strength;
+		float attenuation = 1 / pow(((distance(position, xyz) / 6) + 1), 2);
+		if(strength == 0.0 || attenuation < 0.001) {
+			continue;
+		}
+
 		vec3 position = lights[i].position;
 		vec3 color = lights[i].color;
 		vec3 direction = lights[i].direction;
-		float strength = lights[i].strength;
 
-		if(strength == 0.0) {
-			continue;
-		}
 
 		vec3 result = vec3(0.0);
 
@@ -69,7 +71,7 @@ void main() {
 		// Strength
 		result *= strength;
 		// Attenuation
-		result *= 1 / pow(((distance(position, xyz) / 6) + 1), 2);
+		result *= attenuation;
 		// Spotlight attenuation
 		if(direction != vec3(0)) {
 			result *= max(pow(dot(lightDirection, normalize(direction)), 8), 0);
