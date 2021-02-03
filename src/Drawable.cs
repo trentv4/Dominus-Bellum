@@ -12,9 +12,47 @@ using System.Linq;
 
 namespace DominusCore
 {
+	class Drawable
+	{
+		public List<Drawable> children = new List<Drawable>();
+		public bool isEnabled = true;
+
+		public Drawable() { }
+
+		public void Draw()
+		{
+			if (!isEnabled) return;
+			foreach (Drawable child in children)
+			{
+				child.Draw();
+			}
+			DrawSelf();
+		}
+
+		public virtual void DrawSelf() { }
+
+		public Drawable AddChild(Drawable child)
+		{
+			children.Add(child);
+			return this;
+		}
+
+		public Drawable AddChildren(params Drawable[] children)
+		{
+			this.children.AddRange(children);
+			return this;
+		}
+
+		public Drawable SetEnabled(bool state)
+		{
+			isEnabled = state;
+			return this;
+		}
+	}
+
 	/// <summary> Storage format for non-animated models. This does not preserve vertex data in CPU memory after upload. 
 	/// <br/> Provides methods to bind, draw, and dispose.</summary>
-	internal class Drawable : IDisposable
+	internal class Model : Drawable, IDisposable
 	{
 		private readonly int IndexLength;
 		public readonly int ElementBufferArray_ID;
@@ -30,7 +68,7 @@ namespace DominusCore
 		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
 		/// discarded immediately after being sent to the GL context.
 		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
-		public Drawable(float[] VertexData, uint[] Indices, Texture[] textures)
+		public Model(float[] VertexData, uint[] Indices, params Texture[] textures)
 		{
 			IndexLength = Indices.Length;
 
@@ -47,8 +85,12 @@ namespace DominusCore
 
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
-		public void Draw()
+		public override void DrawSelf()
 		{
+			if (Game.CurrentShader != Game.GeometryShader) return;
+			Matrix4 MatrixModel = GetModelMatrix();
+			GL.UniformMatrix4(Game.GeometryShader.UniformModel_ID, true, ref MatrixModel);
+
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
 			int stride = 12 * sizeof(float);
 			GL.BindVertexBuffer(0, VertexBufferObject_ID, IntPtr.Zero, stride);
@@ -80,37 +122,37 @@ namespace DominusCore
 		}
 
 		/// <summary> Chainable method to set the scale of this object. </summary>
-		public Drawable SetScale(Vector3 Scale)
+		public Model SetScale(Vector3 Scale)
 		{
 			this.Scale = Scale;
 			return this;
 		}
 
 		/// <summary> Chainable method to set the scale of this object in all axis. </summary>
-		public Drawable SetScale(float scale)
+		public Model SetScale(float scale)
 		{
 			this.Scale = new Vector3(scale, scale, scale);
 			return this;
 		}
 
 		/// <summary> Chainable method to set the rotation of this object. </summary>
-		public Drawable SetRotation(Vector3 Rotation)
+		public Model SetRotation(Vector3 Rotation)
 		{
 			this.Rotation = Rotation;
 			return this;
 		}
 
 		/// <summary> Chainable method to set the position of this object. </summary>
-		public Drawable SetPosition(Vector3 Position)
+		public Model SetPosition(Vector3 Position)
 		{
 			this.Position = Position;
 			return this;
 		}
 
 		/// <summary> Creates a flat plane in the XY plane given a texture list. Use scale, rotation, and position to modify this. </summary>
-		public static Drawable CreateDrawablePlane(Texture[] textures)
+		public static Model CreateDrawablePlane(Texture[] textures)
 		{
-			return new Drawable(new float[]{
+			return new Model(new float[]{
 				1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, -1.0f,
 				1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, -1.0f,
 				-1.0f, -1.0f, 0.0f,  0.0f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, -1.0f,
@@ -121,9 +163,9 @@ namespace DominusCore
 			}, textures);
 		}
 
-		public static Drawable CreateDrawableCube(Texture[] textures)
+		public static Model CreateDrawableCube(Texture[] textures)
 		{
-			return new Drawable(new float[]{
+			return new Model(new float[]{
 				1.0f, 1.0f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 0
 				0.0f, 1.0f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 1
 				1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 0.0f, 1.0f,   1.0f, 1.0f, 1.0f,// 2
@@ -149,7 +191,7 @@ namespace DominusCore
 			}, textures);
 		}
 
-		public static Drawable CreateCircle(int density, Texture[] textures)
+		public static Model CreateCircle(int density, params Texture[] textures)
 		{
 			List<float> vertexList = new List<float>();
 			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f, 0.0f, 0.0f, -1.0f, });
@@ -173,11 +215,11 @@ namespace DominusCore
 			indexList[indexList.Length - 1] = 1;
 
 			float[] vertList = vertexList.ToArray();
-			return new Drawable(vertList, indexList, textures);
+			return new Model(vertList, indexList, textures);
 		}
 	}
 
-	internal struct Light
+	internal class Light : Drawable
 	{
 		public Vector3 Position { get; private set; }
 		public Vector3 Color { get; private set; }
@@ -200,9 +242,12 @@ namespace DominusCore
 			this.Strength = strength;
 		}
 
-		public void Bind(ShaderProgramLighting Program, int LightNumber)
+		public override void DrawSelf()
 		{
-			Program.SetLightUniform(LightNumber, Strength, Position, Color, Direction);
+			if (Game.CurrentShader != Game.LightingShader) return;
+			ShaderProgramLighting shader = Game.LightingShader;
+			shader.SetLightUniform(shader.NextLightID, Strength, Position, Color, Direction);
+			shader.NextLightID++;
 		}
 
 		public Light SetPosition(Vector3 Position)

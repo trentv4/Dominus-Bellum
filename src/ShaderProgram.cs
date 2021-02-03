@@ -81,6 +81,7 @@ namespace DominusCore
 		public new ShaderProgramGeometry use()
 		{
 			GL.UseProgram(ShaderProgram_ID);
+			Game.CurrentShader = this;
 			return this;
 		}
 	}
@@ -106,12 +107,13 @@ namespace DominusCore
 		private readonly static int LIGHT_COUNT = 16;
 		public readonly LightUniforms[] UniformLights_ID = new LightUniforms[LIGHT_COUNT];
 		public readonly int UniformCameraPosition_ID;
+		public int NextLightID = 0;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
 		public ShaderProgramLighting(int[] shaders) : base(shaders)
 		{
-			for (int i = 0; i < 16; i++)
+			for (int i = 0; i < LIGHT_COUNT; i++)
 			{
 				UniformLights_ID[i] = new LightUniforms(
 					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].position"),
@@ -133,7 +135,13 @@ namespace DominusCore
 		public new ShaderProgramLighting use()
 		{
 			GL.UseProgram(ShaderProgram_ID);
+			Game.CurrentShader = this;
 			return this;
+		}
+
+		public void ResetLights()
+		{
+			NextLightID = 0;
 		}
 	}
 }
