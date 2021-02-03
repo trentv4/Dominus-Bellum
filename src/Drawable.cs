@@ -45,9 +45,9 @@ namespace DominusCore
 			this.textures = textures;
 		}
 
-		/// <summary> Binds both the vertex and index data for subsequent drawing.
+		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
-		public void Bind()
+		public void Draw()
 		{
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
 			int stride = 12 * sizeof(float);
@@ -57,19 +57,7 @@ namespace DominusCore
 			GL.BindVertexBuffer(3, VertexBufferObject_ID, (IntPtr)(9 * sizeof(float)), stride);
 			for (int i = 0; i < textures.Length; i++)
 				textures[i].Bind(i);
-		}
-
-		/// <summary> Sends the GL.DrawElements() call. </summary>
-		public void Draw()
-		{
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
-		}
-
-		/// <summary> Binds the vertex data, index data, then calls GL.DrawElements(). All warnings from Drawable.Bind() also apply here.</summary>
-		public void BindAndDraw()
-		{
-			Bind();
-			Draw();
 		}
 
 		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
@@ -186,6 +174,59 @@ namespace DominusCore
 
 			float[] vertList = vertexList.ToArray();
 			return new Drawable(vertList, indexList, textures);
+		}
+	}
+
+	internal struct Light
+	{
+		public Vector3 Position { get; private set; }
+		public Vector3 Color { get; private set; }
+		public Vector3 Direction { get; private set; }
+		float Strength;
+
+		public Light(Vector3 position, Vector3 color, float strength)
+		{
+			this.Position = position;
+			this.Color = color;
+			this.Direction = Vector3.Zero;
+			this.Strength = strength;
+		}
+
+		public Light(Vector3 position, Vector3 color, Vector3 Direction, float strength)
+		{
+			this.Position = position;
+			this.Color = color;
+			this.Direction = Direction;
+			this.Strength = strength;
+		}
+
+		public void Bind(ShaderProgramLighting Program, int LightNumber)
+		{
+			Program.SetLightUniform(LightNumber, Strength, Position, Color, Direction);
+		}
+
+		public Light SetPosition(Vector3 Position)
+		{
+			this.Position = Position;
+			return this;
+		}
+
+		public Light SetColor(Vector3 Color)
+		{
+			this.Color = Color;
+			return this;
+		}
+
+		public Light SetDirection(Vector3 Direction)
+		{
+			this.Direction = Direction;
+			return this;
+		}
+
+		public Light SetStrength(float Strength)
+		{
+			this.Strength = Strength;
+			return this;
 		}
 	}
 }

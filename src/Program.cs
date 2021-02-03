@@ -40,6 +40,7 @@ namespace DominusCore
 
 		/* Debugging */
 		private Drawable[] Scene;
+		private Light[] SceneLights;
 		private static DebugProc debugCallback = DebugCallback;
 		private static GCHandle debugCallbackHandle;
 
@@ -91,6 +92,12 @@ namespace DominusCore
 				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
 			Scene = new Drawable[] {
 				plane, lightCube, circle
+			};
+
+			SceneLights = new Light[] {
+				new Light(new Vector3(10f, 5f, 6f), Vector3.One, 3f),
+				new Light(new Vector3(20f, 5f, -10f), new Vector3(0.0f, 0.5f, 1.0f), 2f),
+				new Light(new Vector3(20f, 0f, 6f), new Vector3(1.0f, 0.0f, 0.0f), new Vector3(1, 0, -1), 5.5f),
 			};
 
 			// Lighting shader starts here
@@ -150,7 +157,7 @@ namespace DominusCore
 			{
 				Matrix4 MatrixModel = d.GetModelMatrix();
 				GL.UniformMatrix4(GeometryShader.UniformModel_ID, true, ref MatrixModel);
-				d.BindAndDraw();
+				d.Draw();
 			}
 
 			// Lighting pass
@@ -162,16 +169,15 @@ namespace DominusCore
 				FramebufferTextures[i].Bind(i);
 
 			float outputSin = (float)Math.Sin(RenderFrameCount * RCF);
-			LightingShader.setLightUniform(0, 3f,
-										new Vector3(10f, 5f + (outputSin * 8), 6f),
-										Vector3.One, Vector3.Zero);
-			LightingShader.setLightUniform(1, 2.0f,
-										new Vector3(20f + (5 * outputSin), -10f, 6f),
-										new Vector3(0.0f, 0.5f, 1.0f), Vector3.Zero);
-			LightingShader.setLightUniform(2, 5.5f,
-										new Vector3(20f, 0f, 6f),
-										new Vector3(1.0f, 0.0f, 0.0f),
-										new Vector3(outputSin * 2, 0, -1));
+
+			SceneLights[0].SetPosition(new Vector3(10f, 5f + (outputSin * 8), 6f));
+			SceneLights[1].SetPosition(new Vector3(20f + (5 * outputSin), -10f, 6f));
+			SceneLights[2].SetDirection(new Vector3(outputSin * 2, 0, -1));
+			for (int i = 0; i < SceneLights.Length; i++)
+			{
+				Light a = SceneLights[i];
+				a.Bind(LightingShader, i);
+			}
 
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 

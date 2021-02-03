@@ -122,7 +122,7 @@ namespace DominusCore
 			UniformCameraPosition_ID = GL.GetUniformLocation(ShaderProgram_ID, "cameraPosition");
 		}
 
-		public void setLightUniform(int i, float strength, Vector3 position, Vector3 color, Vector3 direction)
+		public void SetLightUniform(int i, float strength, Vector3 position, Vector3 color, Vector3 direction)
 		{
 			GL.Uniform3(UniformLights_ID[i].position, position.X, position.Y, position.Z);
 			GL.Uniform3(UniformLights_ID[i].color, color.X, color.Y, color.Z);
