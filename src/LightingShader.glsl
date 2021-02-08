@@ -57,13 +57,11 @@ void main() {
 		vec3 color = lights[i].color;
 		vec3 direction = lights[i].direction;
 
-
-		vec3 result = vec3(0.0);
-
 		vec3 lightDirection = normalize(position - xyz);
 		vec3 viewDirection = normalize(cameraPosition - xyz);
 		vec3 halfwayDirection = normalize(lightDirection + viewDirection);
 
+		vec3 result = vec3(0.0);
 		// Diffuse
 		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * color;
 		// Specularity

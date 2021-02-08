@@ -103,7 +103,7 @@ namespace DominusCore {
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgramLighting(int[] shaders) : base(shaders) {
+		public ShaderProgramLighting(params int[] shaders) : base(shaders) {
 			for (int i = 0; i < MAX_LIGHT_COUNT; i++) {
 				UniformLights_ID[i] = new LightUniforms(
 					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].position"),

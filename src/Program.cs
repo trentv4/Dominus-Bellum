@@ -1,18 +1,15 @@
 ﻿using System;
-using System.IO;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace DominusCore {
 	public class Game : GameWindow {
 		// Constants
-		public static readonly string WindowTitle = "Display";
-		public static readonly double RenderUpdatePerSecond = 0.0;
-		public static readonly double LogicUpdatePerSecond = 60.0;
 		public static readonly Vector2i WindowSize = new Vector2i(1280, 720);
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
 		internal const float RCF = 0.017453293f;
@@ -80,7 +77,6 @@ namespace DominusCore {
 			for (int i = 0; i < attachments.Length; i++)
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
 			GL.DrawBuffers(attachments.Length, attachments);
-
 			ConstructScene();
 
 			// Universal VAO setup
@@ -201,12 +197,12 @@ namespace DominusCore {
 			Console.WriteLine("Initializing");
 			GameWindowSettings gws = new GameWindowSettings();
 			gws.IsMultiThreaded = true;
-			gws.RenderFrequency = RenderUpdatePerSecond;
-			gws.UpdateFrequency = LogicUpdatePerSecond;
+			gws.RenderFrequency = 0.0;
+			gws.UpdateFrequency = 60;
 
 			NativeWindowSettings nws = new NativeWindowSettings();
 			nws.Size = WindowSize;
-			nws.Title = WindowTitle;
+			nws.Title = "Display";
 			nws.WindowBorder = WindowBorder.Fixed;
 
 			Console.WriteLine("Creating game object");
