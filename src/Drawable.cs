@@ -20,12 +20,14 @@ namespace DominusCore {
 		public Drawable() { }
 
 		/// <summary> Draws all children of this Drawable recursively if applicable, then draws itself. </summary>
-		public void Draw() {
-			if (!isEnabled) return;
+		public int Draw() {
+			if (!isEnabled) return 0;
+			int runningCount = 0;
 			foreach (Drawable child in children) {
-				child.Draw();
+				runningCount += child.Draw();
 			}
 			DrawSelf();
+			return runningCount + Convert.ToByte(this.GetType() == typeof(Model));
 		}
 
 		/// <summary> Overridden method to handle drawing each subclass. </summary>
