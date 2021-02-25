@@ -61,6 +61,11 @@ namespace DominusCore {
 		public readonly int UniformModel_ID;
 		public readonly int UniformView_ID;
 		public readonly int UniformPerspective_ID;
+		public readonly int UniformMapDiffuse_ID;
+		public readonly int UniformMapGloss_ID;
+		public readonly int UniformMapAO_ID;
+		public readonly int UniformMapNormal_ID;
+		public readonly int UniformMapHeight_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
@@ -68,6 +73,12 @@ namespace DominusCore {
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
 			UniformView_ID = GL.GetUniformLocation(ShaderProgram_ID, "view");
 			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
+
+			UniformMapDiffuse_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_diffuse");
+			UniformMapGloss_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_gloss");
+			UniformMapAO_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_ao");
+			UniformMapNormal_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_normal");
+			UniformMapHeight_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_height");
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
