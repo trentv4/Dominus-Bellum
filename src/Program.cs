@@ -18,12 +18,14 @@ namespace DominusCore {
 		// Rendering
 		public static ShaderProgramGeometry GeometryShader;
 		public static ShaderProgramLighting LightingShader;
+		public static ShaderProgramInterface InterfaceShader;
 		public static ShaderProgram CurrentShader;
 		private float CameraAngle = 90;
 		private static Matrix4 MatrixPerspective;
 		private int FramebufferGeometry;
 		private Texture[] FramebufferTextures;
 		private Drawable SceneRoot;
+		private Drawable InterfaceRoot;
 
 		// Camera
 		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
@@ -50,10 +52,11 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DepthTest);
 			VSync = VSyncMode.Off; // On seems to break?
 
+			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/InterfaceShader.glsl")).use();
 			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
 			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
 
-			// Framebuffer setup for the geometry -> lighting shader
+			// Framebuffer setup for the geometry buffer
 			FramebufferGeometry = GL.GenFramebuffer();
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			FramebufferTextures = new Texture[] {
@@ -73,11 +76,19 @@ namespace DominusCore {
 			for (int i = 0; i < attachments.Length; i++)
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
 			GL.DrawBuffers(attachments.Length, attachments);
-			ConstructScene();
 
-			// Universal VAO setup
-			int VertexArrayObject_ID = GL.GenVertexArray();
-			GL.BindVertexArray(VertexArrayObject_ID);
+			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
+			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
+
+			// Interface VAO setup
+			GL.BindVertexArray(InterfaceShader.VertexArrayObject_ID);
+			GL.EnableVertexAttribArray(0);
+			GL.EnableVertexAttribArray(1);
+			GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0 * sizeof(float)); /* xy */
+			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float)); /* uv */
+
+			// Geometry VAO setup
+			GL.BindVertexArray(GeometryShader.VertexArrayObject_ID);
 			GL.EnableVertexAttribArray(0);
 			GL.EnableVertexAttribArray(1);
 			GL.EnableVertexAttribArray(2);
@@ -94,6 +105,10 @@ namespace DominusCore {
 		protected override void OnRenderFrame(FrameEventArgs args) {
 			frameTimer.Start();
 
+			// Background pass
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
 			// Geometry pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -105,7 +120,6 @@ namespace DominusCore {
 
 			// Lighting pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
 			for (int i = 0; i < FramebufferTextures.Length; i++)
@@ -113,6 +127,10 @@ namespace DominusCore {
 			SceneRoot.Draw();
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
+
+			// Interface pass
+			InterfaceShader.use();
+			InterfaceRoot.Draw();
 
 			// Frame done
 			Context.SwapBuffers();
@@ -122,59 +140,6 @@ namespace DominusCore {
 			int targetFramerate = 60;
 			this.Title = $"Display - {1000 / time,-1:F1} FPS ({time,-4:F4}ms, {100 * time / (1000 / targetFramerate),-2:F2}% budget, {drawcalls} draw calls)"; // 16.6ms frame budget
 			frameTimer.Reset();
-		}
-
-		/// <summary> Constructs the initial game scene and sets SceneRoot to it. </summary>
-		private void ConstructScene() {
-			Texture[] tilesTextures = {
-					new Texture("assets/tiles_diffuse.jpg", GeometryShader.UniformMapDiffuse_ID),
-					new Texture("assets/tiles_gloss.jpg",   GeometryShader.UniformMapGloss_ID),
-					new Texture("assets/tiles_ao.jpg",      GeometryShader.UniformMapAO_ID),
-					new Texture("assets/tiles_normal.jpg",  GeometryShader.UniformMapNormal_ID),
-					new Texture("assets/tiles_height.jpg",  GeometryShader.UniformMapHeight_ID)
-			};
-			Model circle = Model.CreateCircle(90, tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(1.0f);
-			Model plane = Model.CreateDrawablePlane(tilesTextures).SetPosition(new Vector3(20, 2, 10)).SetScale(10.0f);
-			Model cube = Model.CreateDrawableCube(tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(new Vector3(0.25f, 0.25f, 0.25f));
-			Model lightCube = Model.CreateDrawableCube(new Texture[] {
-					new Texture("assets/tiles_blank.png",  GeometryShader.UniformMapDiffuse_ID),
-					new Texture("assets/tiles_blank.png",  GeometryShader.UniformMapGloss_ID),
-					new Texture("assets/tiles_blank.png",  GeometryShader.UniformMapAO_ID),
-					new Texture("assets/tiles_blank.png",  GeometryShader.UniformMapNormal_ID),
-					new Texture("assets/tiles_blank.png",  GeometryShader.UniformMapHeight_ID)
-				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
-
-			Light[] SceneLights = new Light[] {
-				new Light(new Vector3(10f, 5f, 6f), Vector3.One, 3f),
-				new Light(new Vector3(20f, 5f, -10f), new Vector3(0.0f, 0.5f, 1.0f), 2f),
-				new Light(new Vector3(20f, 0f, 6f), new Vector3(1.0f, 0.0f, 0.0f), new Vector3(1, 0, -1), 5.5f),
-			};
-
-			int density = 10;
-			List<float> vertexData = new List<float>();
-			for (float x = 0; x < density; x++) {
-				for (float y = 0; y < density; y++) {
-					float value = ((float)Math.Sin(x / 4) + (float)Math.Sin(y / 4)) / 5;
-					vertexData.AddRange(new float[] { x / density, value, y / density, x / density, y / density, 1, 0, 0, 1, 0, 0, -1 });
-				}
-			}
-			List<uint> indices = new List<uint>();
-			for (int x = 0; x < density - 1; x++) {
-				for (int y = 0; y < density - 1; y++) {
-					uint value = (uint)(x + (y * density));
-					uint udensity = (uint)density;
-					indices.AddRange(new uint[] { value, value + 1, value + udensity });
-					indices.AddRange(new uint[] { value + 1, value + udensity, value + 1 + udensity });
-				}
-			}
-
-			Model a = new Model(vertexData.ToArray(), indices.ToArray(), tilesTextures)
-			.SetPosition(new Vector3(20, -5, 0)).SetScale(20.0f);
-
-			SceneRoot = new Drawable();
-			SceneRoot.AddChildren(plane, lightCube, circle);
-			SceneRoot.AddChildren(SceneLights);
-			SceneRoot.AddChildren(a);
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>

@@ -77,6 +77,5 @@ void main() {
 
 		HDR += result;
 	}
-
 	FragColor = vec4(HDR, 1.0);
 }

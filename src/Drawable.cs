@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace DominusCore {
 	/// <summary> Rendering node object, where anything drawn in a scene is a Drawable. This can be lights, models, fx, etc. </summary>
-	class Drawable {
+	public class Drawable {
 		public List<Drawable> children = new List<Drawable>();
 		/// <summary> Determines if the element and its children will be drawn. </summary>
 		public bool isEnabled = true;
@@ -45,6 +45,98 @@ namespace DominusCore {
 
 		public Drawable SetEnabled(bool state) {
 			isEnabled = state;
+			return this;
+		}
+	}
+
+	internal class InterfaceImage : Drawable, IDisposable {
+		public readonly int VertexBufferObject_ID;
+		private readonly Texture texture;
+
+		public Vector3 Scale { get; private set; } = new Vector3(1, 1, 1);
+		public Vector3 Rotation { get; private set; } = Vector3.Zero;
+		public Vector3 Position { get; private set; } = Vector3.Zero;
+
+		private Matrix4 ModelMatrix;
+
+		/// <summary> Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs]).
+		/// <br/>This represents a single model with specified data. It may be rendered many times with different uniforms,
+		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
+		/// discarded immediately after being sent to the GL context.
+		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
+		public InterfaceImage(Texture texture) {
+			float[] vertexData = new float[]{
+				-1.0f, -1.0f, 0.0f, 1.0f,
+				-1.0f,  1.0f, 0.0f, 0.0f,
+				 1.0f, -1.0f, 1.0f, 1.0f,
+				-1.0f,  1.0f, 0.0f, 0.0f,
+				 1.0f, -1.0f, 1.0f, 1.0f,
+				 1.0f,  1.0f, 1.0f, 0.0f,
+			};
+
+			VertexBufferObject_ID = GL.GenBuffer();
+			GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject_ID);
+			GL.BufferData(BufferTarget.ArrayBuffer, vertexData.Length * sizeof(float), vertexData, BufferUsageHint.StaticDraw);
+
+			this.texture = texture;
+			UpdateModelMatrix();
+		}
+
+		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
+		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
+		public override void DrawSelf() {
+			if (Game.CurrentShader != Game.InterfaceShader) return;
+
+			Matrix4 MatrixModel = GetModelMatrix();
+			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref MatrixModel);
+			texture.Bind(0);
+			GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+		}
+
+		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
+		/// <br/> !! Warning !! Avoid using this unless you know what you're doing! This can crash! </summary>
+		public void Dispose() {
+			GL.DeleteBuffer(VertexBufferObject_ID);
+		}
+
+		/// <summary> Returns the model matrix to go from local to world space. This result is cached. </summary>
+		public Matrix4 GetModelMatrix() {
+			return ModelMatrix;
+		}
+
+		/// <summary> Regenerates the model matrix after an update to scale, translation, or rotation. </summary>
+		private void UpdateModelMatrix() {
+			Matrix4 m = Matrix4.CreateScale(Scale);
+			m *= Matrix4.CreateRotationX(Rotation.X * Game.RCF);
+			m *= Matrix4.CreateRotationY(Rotation.Y * Game.RCF);
+			m *= Matrix4.CreateRotationZ(Rotation.Z * Game.RCF);
+			m *= Matrix4.CreateTranslation(Position);
+			ModelMatrix = m;
+		}
+
+		/// <summary> Chainable method to set the scale of this object. </summary>
+		public InterfaceImage SetScale(Vector3 scale) {
+			this.Scale = scale;
+			UpdateModelMatrix();
+			return this;
+		}
+
+		/// <summary> Chainable method to set the scale of this object in all axis. </summary>
+		public InterfaceImage SetScale(float scale) {
+			return SetScale(new Vector3(scale, scale, scale));
+		}
+
+		/// <summary> Chainable method to set the rotation of this object. </summary>
+		public InterfaceImage SetRotation(Vector3 rotation) {
+			this.Rotation = rotation;
+			UpdateModelMatrix();
+			return this;
+		}
+
+		/// <summary> Chainable method to set the position of this object. </summary>
+		public InterfaceImage SetPosition(Vector3 position) {
+			this.Position = position;
+			UpdateModelMatrix();
 			return this;
 		}
 	}

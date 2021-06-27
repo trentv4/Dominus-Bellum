@@ -56,6 +56,29 @@ namespace DominusCore {
 		}
 	}
 
+	/// <summary> Interface shader program, with extra uniform IDs only needed for interface shaders. </summary>
+	public class ShaderProgramInterface : ShaderProgram {
+		public readonly int UniformElementTexture_ID;
+		public readonly int UniformModel_ID;
+		public readonly int VertexArrayObject_ID;
+
+		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
+		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
+		public ShaderProgramInterface(params int[] shaders) : base(shaders) {
+			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
+			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
+			VertexArrayObject_ID = GL.GenVertexArray();
+		}
+
+		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
+		public ShaderProgramInterface use() {
+			GL.UseProgram(ShaderProgram_ID);
+			GL.BindVertexArray(VertexArrayObject_ID);
+			Game.CurrentShader = this;
+			return this;
+		}
+	}
+
 	/// <summary> Geometry shader program, with extra uniform IDs only needed for geometry shaders. </summary>
 	public class ShaderProgramGeometry : ShaderProgram {
 		public readonly int UniformModel_ID;
@@ -66,6 +89,7 @@ namespace DominusCore {
 		public readonly int UniformMapAO_ID;
 		public readonly int UniformMapNormal_ID;
 		public readonly int UniformMapHeight_ID;
+		public readonly int VertexArrayObject_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
@@ -79,11 +103,14 @@ namespace DominusCore {
 			UniformMapAO_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_ao");
 			UniformMapNormal_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_normal");
 			UniformMapHeight_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_height");
+
+			VertexArrayObject_ID = GL.GenVertexArray();
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
 		public ShaderProgramGeometry use() {
 			GL.UseProgram(ShaderProgram_ID);
+			GL.BindVertexArray(VertexArrayObject_ID);
 			Game.CurrentShader = this;
 			return this;
 		}
