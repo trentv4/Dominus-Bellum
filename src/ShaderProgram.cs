@@ -60,6 +60,7 @@ namespace DominusCore {
 	public class ShaderProgramInterface : ShaderProgram {
 		public readonly int UniformElementTexture_ID;
 		public readonly int UniformModel_ID;
+		public readonly int UniformDepth_ID;
 		public readonly int VertexArrayObject_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
@@ -67,6 +68,7 @@ namespace DominusCore {
 		public ShaderProgramInterface(params int[] shaders) : base(shaders) {
 			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
+			UniformDepth_ID = GL.GetUniformLocation(ShaderProgram_ID, "depth");
 			VertexArrayObject_ID = GL.GenVertexArray();
 		}
 
@@ -76,6 +78,14 @@ namespace DominusCore {
 			GL.BindVertexArray(VertexArrayObject_ID);
 			Game.CurrentShader = this;
 			return this;
+		}
+
+		public void setBackground() {
+			GL.Uniform1(UniformDepth_ID, 0.999999f);
+		}
+
+		public void setForeground() {
+			GL.Uniform1(UniformDepth_ID, 0.0f);
 		}
 	}
 

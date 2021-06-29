@@ -11,9 +11,12 @@ using System.Collections.Generic;
 namespace DominusCore {
 	public class Game : GameWindow {
 		// Constants
-		public static readonly Vector2i WindowSize = new Vector2i(1280, 720);
+		public static readonly Vector2i WindowSize = new Vector2i(1600, 900);
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
 		internal const float RCF = 0.017453293f;
+
+		public static bool autoexit = false;
+		public static int frame = 0;
 
 		// Rendering
 		public static ShaderProgramGeometry GeometryShader;
@@ -26,6 +29,7 @@ namespace DominusCore {
 		private Texture[] FramebufferTextures;
 		private Drawable SceneRoot;
 		private Drawable InterfaceRoot;
+		private Drawable BackgroundRoot;
 
 		// Camera
 		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
@@ -66,7 +70,7 @@ namespace DominusCore {
 			};
 			int depth = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, depth);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, Game.WindowSize.X, Game.WindowSize.Y,
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24, Game.WindowSize.X, Game.WindowSize.Y,
 						  0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
@@ -79,6 +83,7 @@ namespace DominusCore {
 
 			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
 			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
+			BackgroundRoot = DemoBuilder.BuildDemoInterface_BackgroundTest();
 
 			// Interface VAO setup
 			GL.BindVertexArray(InterfaceShader.VertexArrayObject_ID);
@@ -103,15 +108,18 @@ namespace DominusCore {
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args) {
+			frame++;
+			//if (frame > 15 && autoexit) Environment.Exit(0);
 			frameTimer.Start();
 
 			// Background pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			// Geometry pass
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GeometryShader.use();
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
@@ -128,8 +136,16 @@ namespace DominusCore {
 			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
 
-			// Interface pass
+			// Copy geometry depth to default framebuffer
+			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry);
+			GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
+
+			// Background and interfacepass
 			InterfaceShader.use();
+			InterfaceShader.setBackground();
+			BackgroundRoot.Draw();
+			InterfaceShader.setForeground();
 			InterfaceRoot.Draw();
 
 			// Frame done
@@ -177,6 +193,8 @@ namespace DominusCore {
 			gws.IsMultiThreaded = true;
 			gws.RenderFrequency = 0.0;
 			gws.UpdateFrequency = 60;
+
+			if (args.Length > 0) autoexit = true;
 
 			NativeWindowSettings nws = new NativeWindowSettings();
 			nws.Size = WindowSize;

@@ -1,11 +1,5 @@
 using System;
-using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 using System.Collections.Generic;
 
 namespace DominusCore {
@@ -23,7 +17,13 @@ namespace DominusCore {
 		public static Drawable BuildDemoInterface_IngameTest() {
 			Drawable Root = new Drawable();
 			InterfaceImage img = new InterfaceImage(new Texture("assets/InterfaceTest.png", Game.InterfaceShader.UniformElementTexture_ID));
-			img.SetScale(0.75f);
+			Root.AddChild(img);
+			return Root;
+		}
+
+		public static Drawable BuildDemoInterface_BackgroundTest() {
+			Drawable Root = new Drawable();
+			InterfaceImage img = new InterfaceImage(new Texture("assets/background.jpg", Game.InterfaceShader.UniformElementTexture_ID));
 			Root.AddChild(img);
 			return Root;
 		}
