@@ -1,11 +1,7 @@
 using System;
 using System.IO;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Runtime.InteropServices;
 
 namespace DominusCore {
 	/// <summary> Superclass for all shaderprograms. Handles attachment and cleanup of individual shaders. </summary>
@@ -86,6 +82,29 @@ namespace DominusCore {
 
 		public void setForeground() {
 			GL.Uniform1(UniformDepth_ID, 0.0f);
+		}
+	}
+
+	/// <summary> Interface text shader program, with extra uniform IDs only needed for text drawing shaders. </summary>
+	public class ShaderProgramInterfaceText : ShaderProgram {
+		public readonly int UniformElementTexture_ID;
+		public readonly int UniformModel_ID;
+		public readonly int VertexArrayObject_ID;
+
+		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
+		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
+		public ShaderProgramInterfaceText(params int[] shaders) : base(shaders) {
+			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
+			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
+			VertexArrayObject_ID = GL.GenVertexArray();
+		}
+
+		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
+		public ShaderProgramInterfaceText use() {
+			GL.UseProgram(ShaderProgram_ID);
+			GL.BindVertexArray(VertexArrayObject_ID);
+			Game.CurrentShader = this;
+			return this;
 		}
 	}
 
