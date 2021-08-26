@@ -1,14 +1,9 @@
 using System;
-using System.IO;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using OpenTK.Audio.OpenAL.Extensions.EXT.FloatFormat;
-using System.Linq;
+using Assimp;
+using System.IO;
 
 namespace DominusCore {
 	/// <summary> Rendering node object, where anything drawn in a scene is a Drawable. This can be lights, models, fx, etc. </summary>
@@ -90,7 +85,7 @@ namespace DominusCore {
 			Matrix4 MatrixModel = GetModelMatrix();
 			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref MatrixModel);
 			texture.Bind(0);
-			GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 6);
 		}
 
 		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
@@ -241,6 +236,56 @@ namespace DominusCore {
 			return this;
 		}
 
+		/// <summary> Creates a model with data from disk. </summary>
+		public static Model CreateModelFromFile(string filename) {
+			Console.WriteLine($"File {filename} exists: {File.Exists(filename)}");
+			AssimpContext c = new AssimpContext();
+			var scene = c.ImportFile(filename, PostProcessSteps.Triangulate | PostProcessSteps.FlipUVs | PostProcessSteps.CalculateTangentSpace);
+			Model a = null;
+			if (scene.HasMeshes) {
+				//TODO(trent): Implement properly (children)
+				foreach (Mesh m in scene.Meshes) {
+					Vector3D[] vertices = m.Vertices.ToArray();
+					Vector3D[] normals = m.Normals.ToArray();
+					Vector3D[] uvs = m.TextureCoordinateChannels[0].ToArray();
+					Material mat = scene.Materials[m.MaterialIndex];
+
+					List<Texture> t = new List<Texture>();
+
+					t.Add(mat.HasTextureDiffuse ?
+						  new Texture($"{mat.Name}-diffuse", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureDiffuse.TextureIndex])
+						  : Texture.MissingTextures[0]);
+					t.Add(mat.HasTextureSpecular ?
+						  new Texture($"{mat.Name}-gloss", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureSpecular.TextureIndex])
+						  : Texture.MissingTextures[1]);
+					t.Add(mat.HasTextureAmbientOcclusion ?
+						  new Texture($"{mat.Name}-ao", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureAmbientOcclusion.TextureIndex])
+						  : Texture.MissingTextures[2]);
+					t.Add(mat.HasTextureNormal ?
+						  new Texture($"{mat.Name}-normal", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureNormal.TextureIndex])
+						  : Texture.MissingTextures[3]);
+					t.Add(mat.HasTextureHeight ?
+						  new Texture($"{mat.Name}-height", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureHeight.TextureIndex])
+						  : Texture.MissingTextures[4]);
+
+					List<float> vertexData = new List<float>(vertices.Length * 12);
+					for (int i = 0; i < vertices.Length; i++) {
+						vertexData.AddRange(new float[]{
+							vertices[i].X, vertices[i].Y, vertices[i].Z,
+							uvs[i][0], uvs[i][1],
+							mat.ColorDiffuse.R, mat.ColorDiffuse.G, mat.ColorDiffuse.B, mat.ColorDiffuse.A,
+							normals[i].X, normals[i].Y, normals[i].Z});
+					}
+
+					int[] ind = m.GetIndices();
+					uint[] indices = (uint[])(object)ind; // nasty...
+					a = new Model(vertexData.ToArray(), indices, t.ToArray());
+				}
+			}
+
+			return a.SetPosition(new Vector3(20, -4, 5)).SetScale(2.0f).SetRotation(new Vector3(0, 135f, 0f));
+		}
+
 		/// <summary> Creates a flat plane in the XY plane given a texture list.</summary>
 		public static Model CreateDrawablePlane(params Texture[] textures) {
 			return new Model(new float[]{
@@ -287,7 +332,7 @@ namespace DominusCore {
 			List<float> vertexList = new List<float>();
 			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f, 0.0f, 0.0f, -1.0f, });
 			for (int i = 1; i <= density; i++) {
-				float angle = Game.RCF * i * (360 / density);
+				float angle = Game.RCF * i * (360.0f / (float)density);
 				vertexList.AddRange(new List<float>{
 					(float) Math.Cos(angle), (float) Math.Sin(angle), 0f,
 					((float) Math.Cos(angle) + 1)/2.0f, ((float) Math.Sin(angle) + 1)/2.0f,
