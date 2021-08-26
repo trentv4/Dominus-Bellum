@@ -6,7 +6,6 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using System.Collections.Generic;
 
 namespace DominusCore {
 	public class Game : GameWindow {
@@ -15,13 +14,11 @@ namespace DominusCore {
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
 		internal const float RCF = 0.017453293f;
 
-		public static bool autoexit = false;
-		public static int frame = 0;
-
 		// Rendering
 		public static ShaderProgramGeometry GeometryShader;
 		public static ShaderProgramLighting LightingShader;
 		public static ShaderProgramInterface InterfaceShader;
+		public static ShaderProgramInterface InterfaceTextShader;
 		public static ShaderProgram CurrentShader;
 		private float CameraAngle = 90;
 		private static Matrix4 MatrixPerspective;
@@ -30,6 +27,8 @@ namespace DominusCore {
 		private Drawable SceneRoot;
 		private Drawable InterfaceRoot;
 		private Drawable BackgroundRoot;
+		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring </summary>
+		private double[] frameTimes = new double[30];
 
 		// Camera
 		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
@@ -54,11 +53,20 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
-			VSync = VSyncMode.Off; // On seems to break?
+			VSync = VSyncMode.Off; // On seems to break? I don't think this is really matching VSync rates correctly.
 
-			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/InterfaceShader.glsl")).use();
-			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/GeometryShader.glsl")).use();
-			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/LightingShader.glsl")).use();
+			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceShader.glsl")).use();
+			InterfaceTextShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceTextShader.glsl")).use();
+			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl")).use();
+			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl")).use();
+
+			Texture.MissingTextures = new Texture[] {
+				new Texture("assets/missing.png", GeometryShader.UniformMapDiffuse_ID),
+				new Texture("assets/missing.png", GeometryShader.UniformMapGloss_ID),
+				new Texture("assets/missing.png", GeometryShader.UniformMapAO_ID),
+				new Texture("assets/missing.png", GeometryShader.UniformMapNormal_ID),
+				new Texture("assets/missing.png", GeometryShader.UniformMapHeight_ID),
+			};
 
 			// Framebuffer setup for the geometry buffer
 			FramebufferGeometry = GL.GenFramebuffer();
@@ -81,6 +89,7 @@ namespace DominusCore {
 				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
 			GL.DrawBuffers(attachments.Length, attachments);
 
+			// Create Drawable objects for each layer
 			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
 			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
 			BackgroundRoot = DemoBuilder.BuildDemoInterface_BackgroundTest();
@@ -108,18 +117,13 @@ namespace DominusCore {
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args) {
-			frame++;
-			//if (frame > 15 && autoexit) Environment.Exit(0);
+			frameTimer.Reset();
+			long frameStart = frameTimer.ElapsedTicks;
 			frameTimer.Start();
 
-			// Background pass
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			// Geometry pass (world space)
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-			// Geometry pass
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
 			GeometryShader.use();
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
@@ -127,13 +131,15 @@ namespace DominusCore {
 			int drawcalls = SceneRoot.Draw();
 
 			// Lighting pass
+			// We are now entering screen space
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
 			for (int i = 0; i < FramebufferTextures.Length; i++)
 				FramebufferTextures[i].Bind(i);
 			SceneRoot.Draw();
-			GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
 
 			// Copy geometry depth to default framebuffer
@@ -141,21 +147,34 @@ namespace DominusCore {
 			GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
 			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
 
-			// Background and interfacepass
+			// 2d interface elements
 			InterfaceShader.use();
 			InterfaceShader.setBackground();
 			BackgroundRoot.Draw();
 			InterfaceShader.setForeground();
 			InterfaceRoot.Draw();
 
+			// 2d text rendering
+			InterfaceTextShader.use();
+			InterfaceRoot.Draw();
+
 			// Frame done
 			Context.SwapBuffers();
-
 			frameTimer.Stop();
-			double time = 1000 * (double)frameTimer.ElapsedTicks / (double)Stopwatch.Frequency; // in milliseconds
-			int targetFramerate = 60;
-			this.Title = $"Display - {1000 / time,-1:F1} FPS ({time,-4:F4}ms, {100 * time / (1000 / targetFramerate),-2:F2}% budget, {drawcalls} draw calls)"; // 16.6ms frame budget
-			frameTimer.Reset();
+			long frameEnd = frameTimer.ElapsedTicks;
+
+			double currentTime = 1000 * (double)(frameEnd - frameStart) / (double)Stopwatch.Frequency; // in milliseconds
+			double time = 0;
+			for (int i = 0; i < frameTimes.Length - 1; i++) {
+				frameTimes[i] = frameTimes[i + 1];
+				time += frameTimes[i];
+			}
+			frameTimes[frameTimes.Length - 1] = currentTime;
+			time += currentTime;
+			time /= frameTimes.Length;
+
+			int targetFrameDuration = 10;//ms
+			this.Title = $"Display - {1000 / time,-1:F1} FPS ({time,-4:F4}ms, {100 * time / (1000 / targetFrameDuration),-2:F2}% budget, {drawcalls} draw calls)"; // 16.6ms frame budget
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
@@ -182,19 +201,20 @@ namespace DominusCore {
 		/// <summary> Handles all debug callbacks from OpenGL and throws exceptions if unhandled. </summary>
 		private static void DebugCallback(DebugSource source, DebugType type, int id, DebugSeverity severity, int length, IntPtr message, IntPtr userParam) {
 			string messageString = Marshal.PtrToStringAnsi(message, length);
-			Console.WriteLine($"{severity} {type} | {messageString}");
+			if (type < DebugType.DebugTypeOther)
+				Console.WriteLine($"{severity} {type} | {messageString}");
 			if (type == DebugType.DebugTypeError)
 				throw new Exception(messageString);
 		}
 
 		public static void Main(string[] args) {
 			Console.WriteLine("Initializing");
+			Assimp.Unmanaged.AssimpLibrary.Instance.LoadLibrary();
+
 			GameWindowSettings gws = new GameWindowSettings();
 			gws.IsMultiThreaded = true;
 			gws.RenderFrequency = 0.0;
 			gws.UpdateFrequency = 60;
-
-			if (args.Length > 0) autoexit = true;
 
 			NativeWindowSettings nws = new NativeWindowSettings();
 			nws.Size = WindowSize;
