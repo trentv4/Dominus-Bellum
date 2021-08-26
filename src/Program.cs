@@ -139,6 +139,7 @@ namespace DominusCore {
 			for (int i = 0; i < FramebufferTextures.Length; i++)
 				FramebufferTextures[i].Bind(i);
 			SceneRoot.Draw();
+			drawcalls++;
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
 
@@ -150,13 +151,13 @@ namespace DominusCore {
 			// 2d interface elements
 			InterfaceShader.use();
 			InterfaceShader.setBackground();
-			BackgroundRoot.Draw();
+			drawcalls += BackgroundRoot.Draw();
 			InterfaceShader.setForeground();
-			InterfaceRoot.Draw();
+			drawcalls += InterfaceRoot.Draw();
 
 			// 2d text rendering
 			InterfaceTextShader.use();
-			InterfaceRoot.Draw();
+			drawcalls += InterfaceRoot.Draw();
 
 			// Frame done
 			Context.SwapBuffers();
@@ -170,8 +171,7 @@ namespace DominusCore {
 				time += frameTimes[i];
 			}
 			frameTimes[frameTimes.Length - 1] = currentTime;
-			time += currentTime;
-			time /= frameTimes.Length;
+			time = (currentTime + time) / frameTimes.Length;
 
 			int targetFrameDuration = 10;//ms
 			this.Title = $"Display - {1000 / time,-1:F1} FPS ({time,-4:F4}ms, {100 * time / (1000 / targetFrameDuration),-2:F2}% budget, {drawcalls} draw calls)"; // 16.6ms frame budget

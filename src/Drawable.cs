@@ -21,12 +21,12 @@ namespace DominusCore {
 			foreach (Drawable child in children) {
 				runningCount += child.Draw();
 			}
-			DrawSelf();
-			return runningCount + Convert.ToByte(this.GetType() == typeof(Model));
+
+			return runningCount + Convert.ToByte(DrawSelf());
 		}
 
 		/// <summary> Overridden method to handle drawing each subclass. </summary>
-		public virtual void DrawSelf() { }
+		public virtual bool DrawSelf() { return false; }
 
 		public Drawable AddChild(Drawable child) {
 			children.Add(child);
@@ -79,13 +79,14 @@ namespace DominusCore {
 
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
-		public override void DrawSelf() {
-			if (Game.CurrentShader != Game.InterfaceShader) return;
+		public override bool DrawSelf() {
+			if (Game.CurrentShader != Game.InterfaceShader) return false;
 
 			Matrix4 MatrixModel = GetModelMatrix();
 			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref MatrixModel);
 			texture.Bind(0);
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 6);
+			return true;
 		}
 
 		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
@@ -172,8 +173,8 @@ namespace DominusCore {
 
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
-		public override void DrawSelf() {
-			if (Game.CurrentShader != Game.GeometryShader) return;
+		public override bool DrawSelf() {
+			if (Game.CurrentShader != Game.GeometryShader) return false;
 			Matrix4 MatrixModel = GetModelMatrix();
 			GL.UniformMatrix4(Game.GeometryShader.UniformModel_ID, true, ref MatrixModel);
 
@@ -186,6 +187,7 @@ namespace DominusCore {
 			for (int i = 0; i < textures.Length; i++)
 				textures[i].Bind(i);
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
+			return true;
 		}
 
 		/// <summary> Deletes buffers in OpenGL. This is automatically done by object garbage collection OR program close.
@@ -238,7 +240,7 @@ namespace DominusCore {
 
 		/// <summary> Creates a model with data from disk. </summary>
 		public static Model CreateModelFromFile(string filename) {
-			Console.WriteLine($"File {filename} exists: {File.Exists(filename)}");
+			Console.WriteLine($"Loading model from file: \"{filename}\" exists: {File.Exists(filename)}");
 			AssimpContext c = new AssimpContext();
 			var scene = c.ImportFile(filename, PostProcessSteps.Triangulate | PostProcessSteps.FlipUVs | PostProcessSteps.CalculateTangentSpace);
 			Model a = null;
@@ -389,11 +391,12 @@ namespace DominusCore {
 
 		/// <summary> Sets appropriate uniforms in the lighting shader using the stored next light ID, and increments the ID.
 		/// <br/> !! Warning !! This means that the lighting uniform IDs are not ensured to be consistent from frame to frame!</summary>
-		public override void DrawSelf() {
-			if (Game.CurrentShader != Game.LightingShader) return;
+		public override bool DrawSelf() {
+			if (Game.CurrentShader != Game.LightingShader) return false;
 			ShaderProgramLighting shader = Game.LightingShader;
 			shader.SetLightUniform(shader.NextLightID, Strength, Position, Color, Direction);
 			shader.NextLightID++;
+			return false;
 		}
 
 		/// <summary> Chainable method to set position. </summary>

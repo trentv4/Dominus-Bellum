@@ -74,7 +74,7 @@ namespace DominusCore {
 			Model a = new Model(vertexData.ToArray(), indices.ToArray(), tilesTextures)
 			.SetPosition(new Vector3(20, -5, 0)).SetScale(20.0f);
 
-			Model b = Model.CreateModelFromFile("F:/Dropbox/computer-science/csharp/dominus-bellum/assets/truck_grey.glb").SetPosition(new Vector3(20, 4, 3));
+			Model b = Model.CreateModelFromFile("assets/truck_grey.glb").SetPosition(new Vector3(20, 4, 3));
 
 			Drawable SceneRoot = new Drawable();
 			SceneRoot.AddChildren(plane, lightCube, circle);
