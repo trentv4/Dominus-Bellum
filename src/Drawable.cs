@@ -25,7 +25,7 @@ namespace DominusCore {
 			return runningCount + Convert.ToByte(DrawSelf());
 		}
 
-		/// <summary> Overridden method to handle drawing each subclass. </summary>
+		/// <summary> Overridden method to handle drawing each subclass. Return true if this executes (correct render pass)</summary>
 		public virtual bool DrawSelf() { return false; }
 
 		public Drawable AddChild(Drawable child) {
@@ -44,22 +44,24 @@ namespace DominusCore {
 		}
 	}
 
+	/// <summary> Storage format for textured quads with no depth. This is meant for interface use only. Vertex data is not preserved in CPU after upload.
+	/// <br/> Provides methods to set position, scale, rotation, and to dispose. </summary>
 	internal class InterfaceImage : Drawable, IDisposable {
-		public readonly int VertexBufferObject_ID;
 		private readonly Texture texture;
+		private readonly Game.RenderPass DrawPass;
 
-		public Vector3 Scale { get; private set; } = new Vector3(1, 1, 1);
+		public readonly int VertexBufferObject_ID;
+		public Vector3 Scale { get; private set; } = Vector3.One;
 		public Vector3 Rotation { get; private set; } = Vector3.Zero;
 		public Vector3 Position { get; private set; } = Vector3.Zero;
-
-		private Matrix4 ModelMatrix;
+		public Matrix4 ModelMatrix { get; private set; } = Matrix4.Identity;
 
 		/// <summary> Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs]).
 		/// <br/>This represents a single model with specified data. It may be rendered many times with different uniforms,
 		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
 		/// discarded immediately after being sent to the GL context.
 		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
-		public InterfaceImage(Texture texture) {
+		public InterfaceImage(Texture texture, Game.RenderPass passToDrawIn) {
 			float[] vertexData = new float[]{
 				-1.0f, -1.0f, 0.0f, 1.0f,
 				-1.0f,  1.0f, 0.0f, 0.0f,
@@ -74,17 +76,18 @@ namespace DominusCore {
 			GL.BufferData(BufferTarget.ArrayBuffer, vertexData.Length * sizeof(float), vertexData, BufferUsageHint.StaticDraw);
 
 			this.texture = texture;
+			this.DrawPass = passToDrawIn;
 			UpdateModelMatrix();
 		}
 
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentShader != Game.InterfaceShader) return false;
+			if (Game.CurrentPass != DrawPass) return false;
 
-			Matrix4 MatrixModel = GetModelMatrix();
-			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref MatrixModel);
-			texture.Bind(0);
+			Matrix4 tempModelMatrix = ModelMatrix;
+			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref tempModelMatrix);
+			texture.Bind(0, Game.InterfaceShader.UniformElementTexture_ID);
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 6);
 			return true;
 		}
@@ -93,11 +96,6 @@ namespace DominusCore {
 		/// <br/> !! Warning !! Avoid using this unless you know what you're doing! This can crash! </summary>
 		public void Dispose() {
 			GL.DeleteBuffer(VertexBufferObject_ID);
-		}
-
-		/// <summary> Returns the model matrix to go from local to world space. This result is cached. </summary>
-		public Matrix4 GetModelMatrix() {
-			return ModelMatrix;
 		}
 
 		/// <summary> Regenerates the model matrix after an update to scale, translation, or rotation. </summary>
@@ -141,15 +139,14 @@ namespace DominusCore {
 	/// <br/> Provides methods to bind, draw, and dispose.</summary>
 	internal class Model : Drawable, IDisposable {
 		private readonly int IndexLength;
-		public readonly int ElementBufferArray_ID;
-		public readonly int VertexBufferObject_ID;
 		private readonly Texture[] textures;
 
-		public Vector3 Scale { get; private set; } = new Vector3(1, 1, 1);
+		public readonly int ElementBufferArray_ID;
+		public readonly int VertexBufferObject_ID;
+		public Vector3 Scale { get; private set; } = Vector3.One;
 		public Vector3 Rotation { get; private set; } = Vector3.Zero;
 		public Vector3 Position { get; private set; } = Vector3.Zero;
-
-		private Matrix4 ModelMatrix;
+		public Matrix4 ModelMatrix { get; private set; } = Matrix4.Identity;
 
 		/// <summary> Creates a drawable object with a given set of vertex data ([xyz][uv][rgba][qrs]).
 		/// <br/>This represents a single model with specified data. It may be rendered many times with different uniforms,
@@ -174,9 +171,9 @@ namespace DominusCore {
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentShader != Game.GeometryShader) return false;
-			Matrix4 MatrixModel = GetModelMatrix();
-			GL.UniformMatrix4(Game.GeometryShader.UniformModel_ID, true, ref MatrixModel);
+			if (Game.CurrentPass != Game.RenderPass.Geometry) return false;
+			Matrix4 tempModelMatrix = ModelMatrix;
+			GL.UniformMatrix4(Game.GeometryShader.UniformModel_ID, true, ref tempModelMatrix);
 
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
 			int stride = 12 * sizeof(float);
@@ -185,7 +182,7 @@ namespace DominusCore {
 			GL.BindVertexBuffer(2, VertexBufferObject_ID, (IntPtr)(5 * sizeof(float)), stride);
 			GL.BindVertexBuffer(3, VertexBufferObject_ID, (IntPtr)(9 * sizeof(float)), stride);
 			for (int i = 0; i < textures.Length; i++)
-				textures[i].Bind(i);
+				textures[i].Bind(i, Game.GeometryShader.TextureUniforms[i]);
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
 			return true;
 		}
@@ -195,11 +192,6 @@ namespace DominusCore {
 		public void Dispose() {
 			GL.DeleteBuffer(VertexBufferObject_ID);
 			GL.DeleteBuffer(ElementBufferArray_ID);
-		}
-
-		/// <summary> Returns the model matrix to go from local to world space. This result is cached. </summary>
-		public Matrix4 GetModelMatrix() {
-			return ModelMatrix;
 		}
 
 		/// <summary> Regenerates the model matrix after an update to scale, translation, or rotation. </summary>
@@ -255,20 +247,20 @@ namespace DominusCore {
 					List<Texture> t = new List<Texture>();
 
 					t.Add(mat.HasTextureDiffuse ?
-						  new Texture($"{mat.Name}-diffuse", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureDiffuse.TextureIndex])
-						  : Texture.MissingTextures[0]);
+						  new Texture($"{mat.Name}-diffuse", scene.Textures[mat.TextureDiffuse.TextureIndex])
+						  : Texture.MissingTexture);
 					t.Add(mat.HasTextureSpecular ?
-						  new Texture($"{mat.Name}-gloss", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureSpecular.TextureIndex])
-						  : Texture.MissingTextures[1]);
+						  new Texture($"{mat.Name}-gloss", scene.Textures[mat.TextureSpecular.TextureIndex])
+						  : Texture.MissingTexture);
 					t.Add(mat.HasTextureAmbientOcclusion ?
-						  new Texture($"{mat.Name}-ao", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureAmbientOcclusion.TextureIndex])
-						  : Texture.MissingTextures[2]);
+						  new Texture($"{mat.Name}-ao", scene.Textures[mat.TextureAmbientOcclusion.TextureIndex])
+						  : Texture.MissingTexture);
 					t.Add(mat.HasTextureNormal ?
-						  new Texture($"{mat.Name}-normal", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureNormal.TextureIndex])
-						  : Texture.MissingTextures[3]);
+						  new Texture($"{mat.Name}-normal", scene.Textures[mat.TextureNormal.TextureIndex])
+						  : Texture.MissingTexture);
 					t.Add(mat.HasTextureHeight ?
-						  new Texture($"{mat.Name}-height", Game.GeometryShader.UniformMapDiffuse_ID, scene.Textures[mat.TextureHeight.TextureIndex])
-						  : Texture.MissingTextures[4]);
+						  new Texture($"{mat.Name}-height", scene.Textures[mat.TextureHeight.TextureIndex])
+						  : Texture.MissingTexture);
 
 					List<float> vertexData = new List<float>(vertices.Length * 12);
 					for (int i = 0; i < vertices.Length; i++) {
@@ -392,7 +384,8 @@ namespace DominusCore {
 		/// <summary> Sets appropriate uniforms in the lighting shader using the stored next light ID, and increments the ID.
 		/// <br/> !! Warning !! This means that the lighting uniform IDs are not ensured to be consistent from frame to frame!</summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentShader != Game.LightingShader) return false;
+			if (Game.CurrentPass != Game.RenderPass.Lighting) return false;
+
 			ShaderProgramLighting shader = Game.LightingShader;
 			shader.SetLightUniform(shader.NextLightID, Strength, Position, Color, Direction);
 			shader.NextLightID++;

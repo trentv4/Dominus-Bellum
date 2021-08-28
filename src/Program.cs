@@ -6,31 +6,30 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Linq;
 
 namespace DominusCore {
 	public class Game : GameWindow {
 		// Constants
 		public static readonly Vector2i WindowSize = new Vector2i(1600, 900);
-		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180</summary>
+		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180. </summary>
 		internal const float RCF = 0.017453293f;
 
 		// Rendering
 		public static ShaderProgramGeometry GeometryShader;
 		public static ShaderProgramLighting LightingShader;
 		public static ShaderProgramInterface InterfaceShader;
-		public static ShaderProgramInterface InterfaceTextShader;
-		public static ShaderProgram CurrentShader;
-		private float CameraAngle = 90;
-		private static Matrix4 MatrixPerspective;
-		private int FramebufferGeometry;
-		private Texture[] FramebufferTextures;
+		public static ShaderProgramInterfaceText InterfaceTextShader;
+		/// <summary> The current render pass, usually set by ShaderProgram.use(). </summary>
+		public static RenderPass CurrentPass;
+
+		// Content
 		private Drawable SceneRoot;
 		private Drawable InterfaceRoot;
-		private Drawable BackgroundRoot;
-		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring </summary>
-		private double[] frameTimes = new double[30];
 
 		// Camera
+		private static Matrix4 CameraPerspectiveMatrix;
+		private float CameraAngle = 90;
 		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
 		private static Vector3 CameraTarget = -Vector3.UnitZ;
@@ -39,8 +38,19 @@ namespace DominusCore {
 		private static DebugProc debugCallback = DebugCallback;
 		private static GCHandle debugCallbackHandle;
 		private static Stopwatch frameTimer = new Stopwatch();
+		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring. </summary>
+		private double[] frameTimes = new double[30];
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
+
+		/// <summary> The types of render passes that can be done in the render loop, used to control what gets run in Drawable.DrawSelf(). </summary>
+		public enum RenderPass {
+			Geometry,
+			Lighting,
+			InterfaceForeground,
+			InterfaceBackground,
+			InterfaceText
+		}
 
 		/// <summary> Handles all graphics setup processing: creates shader program, drawables, sets flags, sets attribs.
 		/// <br/> THREAD: OpenGL </summary>
@@ -55,44 +65,16 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DepthTest);
 			VSync = VSyncMode.Off; // On seems to break? I don't think this is really matching VSync rates correctly.
 
-			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceShader.glsl")).use();
-			InterfaceTextShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceTextShader.glsl")).use();
-			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl")).use();
-			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl")).use();
+			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceShader.glsl"));
+			InterfaceTextShader = new ShaderProgramInterfaceText(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceTextShader.glsl"));
+			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl"));
+			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl"));
 
-			Texture.MissingTextures = new Texture[] {
-				new Texture("assets/missing.png", GeometryShader.UniformMapDiffuse_ID),
-				new Texture("assets/missing.png", GeometryShader.UniformMapGloss_ID),
-				new Texture("assets/missing.png", GeometryShader.UniformMapAO_ID),
-				new Texture("assets/missing.png", GeometryShader.UniformMapNormal_ID),
-				new Texture("assets/missing.png", GeometryShader.UniformMapHeight_ID),
-			};
-
-			// Framebuffer setup for the geometry buffer
-			FramebufferGeometry = GL.GenFramebuffer();
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
-			FramebufferTextures = new Texture[] {
-				new Texture(0, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gPosition")),
-				new Texture(1, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gNormal")),
-				new Texture(2, GL.GetUniformLocation(LightingShader.ShaderProgram_ID, "gAlbedoSpec")),
-			};
-			int depth = GL.GenTexture();
-			GL.BindTexture(TextureTarget.Texture2D, depth);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24, Game.WindowSize.X, Game.WindowSize.Y,
-						  0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
-									TextureTarget.Texture2D, depth, 0);
-			DrawBuffersEnum[] attachments = new DrawBuffersEnum[FramebufferTextures.Length];
-			for (int i = 0; i < attachments.Length; i++)
-				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
-			GL.DrawBuffers(attachments.Length, attachments);
+			Texture.MissingTexture = new Texture("assets/missing.png");
 
 			// Create Drawable objects for each layer
 			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
 			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
-			BackgroundRoot = DemoBuilder.BuildDemoInterface_BackgroundTest();
 
 			// Interface VAO setup
 			GL.BindVertexArray(InterfaceShader.VertexArrayObject_ID);
@@ -122,59 +104,46 @@ namespace DominusCore {
 			frameTimer.Start();
 
 			// Geometry pass (world space)
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, GeometryShader.FramebufferGeometry);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GeometryShader.use();
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
-			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref MatrixPerspective);
+			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref CameraPerspectiveMatrix);
 			int drawcalls = SceneRoot.Draw();
 
-			// Lighting pass
-			// We are now entering screen space
+			// Lighting pass (screen space)
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
+			GeometryShader.BindFramebufferTextures();
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
-			for (int i = 0; i < FramebufferTextures.Length; i++)
-				FramebufferTextures[i].Bind(i);
-			SceneRoot.Draw();
-			drawcalls++;
+			drawcalls += SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
+			drawcalls++;
 			LightingShader.ResetLights();
 
-			// Copy geometry depth to default framebuffer
-			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry);
-			GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+			// Copy geometry depth to default framebuffer (world space -> screen space)
+			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, GeometryShader.FramebufferGeometry);
 			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
 
-			// 2d interface elements
-			InterfaceShader.use();
-			InterfaceShader.setBackground();
-			drawcalls += BackgroundRoot.Draw();
-			InterfaceShader.setForeground();
+			// 2d interface (screen space)
+			InterfaceShader.use(RenderPass.InterfaceBackground);
 			drawcalls += InterfaceRoot.Draw();
-
-			// 2d text rendering
+			InterfaceShader.use(RenderPass.InterfaceForeground);
+			drawcalls += InterfaceRoot.Draw();
 			InterfaceTextShader.use();
 			drawcalls += InterfaceRoot.Draw();
 
 			// Frame done
 			Context.SwapBuffers();
 			frameTimer.Stop();
-			long frameEnd = frameTimer.ElapsedTicks;
 
-			double currentTime = 1000 * (double)(frameEnd - frameStart) / (double)Stopwatch.Frequency; // in milliseconds
-			double time = 0;
-			for (int i = 0; i < frameTimes.Length - 1; i++) {
-				frameTimes[i] = frameTimes[i + 1];
-				time += frameTimes[i];
-			}
-			frameTimes[frameTimes.Length - 1] = currentTime;
-			time = (currentTime + time) / frameTimes.Length;
-
-			int targetFrameDuration = 10;//ms
-			this.Title = $"Display - {1000 / time,-1:F1} FPS ({time,-4:F4}ms, {100 * time / (1000 / targetFrameDuration),-2:F2}% budget, {drawcalls} draw calls)"; // 16.6ms frame budget
+			// How long did the frame take?
+			Array.Copy(frameTimes, 1, frameTimes, 0, frameTimes.Length - 1);
+			frameTimes[frameTimes.Length - 1] = 1000f * (frameTimer.ElapsedTicks - frameStart) / Stopwatch.Frequency;
+			double time = frameTimes.Sum() / frameTimes.Length;
+			this.Title = $"Display - FPS: {1000 / time,-1:F1} Drawcalls: {drawcalls} Frametime: {time,-4:F2}ms, Budget: {time / 10/*ms*/,-2:P2} (target: 10ms)";
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
@@ -195,7 +164,7 @@ namespace DominusCore {
 		/// <summary> Handles resizing and keeping GLViewport correct</summary>
 		protected override void OnResize(ResizeEventArgs e) {
 			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
-			MatrixPerspective = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)WindowSize.X / (float)WindowSize.Y, 0.001f, 100.0f);
+			CameraPerspectiveMatrix = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)WindowSize.X / (float)WindowSize.Y, 0.001f, 100.0f);
 		}
 
 		/// <summary> Handles all debug callbacks from OpenGL and throws exceptions if unhandled. </summary>
@@ -211,17 +180,17 @@ namespace DominusCore {
 			Console.WriteLine("Initializing");
 			Assimp.Unmanaged.AssimpLibrary.Instance.LoadLibrary();
 
-			GameWindowSettings gws = new GameWindowSettings();
-			gws.IsMultiThreaded = true;
-			gws.RenderFrequency = 0.0;
-			gws.UpdateFrequency = 60;
+			GameWindowSettings gws = new GameWindowSettings() {
+				IsMultiThreaded = true,
+				UpdateFrequency = 60
+			};
 
-			NativeWindowSettings nws = new NativeWindowSettings();
-			nws.Size = WindowSize;
-			nws.Title = "Display";
-			nws.WindowBorder = WindowBorder.Fixed;
+			NativeWindowSettings nws = new NativeWindowSettings() {
+				Size = WindowSize,
+				Title = "Display",
+				WindowBorder = WindowBorder.Fixed
+			};
 
-			Console.WriteLine("Creating game object");
 			using (Game g = new Game(gws, nws)) {
 				g.Run();
 			}

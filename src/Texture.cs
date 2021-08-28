@@ -17,14 +17,10 @@ namespace DominusCore {
 		private readonly float MaxAnisotrophy = GL.GetFloat((GetPName)All.MaxTextureMaxAnisotropy);
 		/// <summary> OpenGL ID assigned via GL.GenTexture() to this texture. </summary>
 		public readonly int TextureID;
-		/// <summary> Uniform ID assigned via GL.GetUniformLocation() which corresponds to one specific shader uniform. </summary>
-		private readonly int UniformLocation;
-		public static Texture[] MissingTextures;
+		public static Texture MissingTexture;
 
 		/// <summary> Creates a texture using anisotropic filtering, primarily meant for regular texture use. </summary>
-		public Texture(string location, int uniform) {
-			UniformLocation = uniform;
-
+		public Texture(string location) {
 			if (LOADED_TEXTURES.ContainsKey(location)) {
 				this.TextureID = LOADED_TEXTURES[location];
 			} else {
@@ -50,9 +46,7 @@ namespace DominusCore {
 		}
 
 		/// <summary> Creates a texture using anisotropic filtering, primarily meant for regular texture use. </summary>
-		public Texture(string location, int uniform, EmbeddedTexture embedded) {
-			UniformLocation = uniform;
-
+		public Texture(string location, EmbeddedTexture embedded) {
 			if (LOADED_TEXTURES.ContainsKey(location)) {
 				this.TextureID = LOADED_TEXTURES[location];
 			} else {
@@ -86,9 +80,7 @@ namespace DominusCore {
 
 		/// <summary> Creates a Framebuffer texture, NOT MEANT FOR USE ON MODELS. Does not use anisotropic filtering.
 		/// <br/>The colorAttachment parameter is used as an offset from FramebufferAttachment.ColorAttachment0.</summary>
-		public Texture(int colorAttachment, int UniformLocation) {
-			this.UniformLocation = UniformLocation;
-
+		public Texture(int colorAttachment) {
 			TextureID = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
 			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f, Game.WindowSize.X, Game.WindowSize.Y,
@@ -101,10 +93,10 @@ namespace DominusCore {
 
 		/// <summary> Binds the texture to specified texture unit. 
 		/// <br/>The textureUnit parameter used as an offset from TextureUnit.Texture0. </summary>
-		public void Bind(int textureUnit) {
+		public void Bind(int textureUnit, int uniformLocation) {
 			GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
 			GL.BindTexture(TextureTarget.Texture2D, TextureID);
-			GL.Uniform1(UniformLocation, textureUnit);
+			GL.Uniform1(uniformLocation, textureUnit);
 		}
 	}
 }

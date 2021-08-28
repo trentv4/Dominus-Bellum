@@ -69,19 +69,16 @@ namespace DominusCore {
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public ShaderProgramInterface use() {
+		public ShaderProgramInterface use(Game.RenderPass pass) {
 			GL.UseProgram(ShaderProgram_ID);
 			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentShader = this;
+			Game.CurrentPass = pass;
+			if (pass == Game.RenderPass.InterfaceBackground) {
+				GL.Uniform1(UniformDepth_ID, 0.999999f);
+			} else {
+				GL.Uniform1(UniformDepth_ID, 0.0f);
+			}
 			return this;
-		}
-
-		public void setBackground() {
-			GL.Uniform1(UniformDepth_ID, 0.999999f);
-		}
-
-		public void setForeground() {
-			GL.Uniform1(UniformDepth_ID, 0.0f);
 		}
 	}
 
@@ -103,22 +100,21 @@ namespace DominusCore {
 		public ShaderProgramInterfaceText use() {
 			GL.UseProgram(ShaderProgram_ID);
 			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentShader = this;
+			Game.CurrentPass = Game.RenderPass.InterfaceText;
 			return this;
 		}
 	}
 
 	/// <summary> Geometry shader program, with extra uniform IDs only needed for geometry shaders. </summary>
 	public class ShaderProgramGeometry : ShaderProgram {
+		public readonly int[] TextureUniforms;
 		public readonly int UniformModel_ID;
 		public readonly int UniformView_ID;
 		public readonly int UniformPerspective_ID;
-		public readonly int UniformMapDiffuse_ID;
-		public readonly int UniformMapGloss_ID;
-		public readonly int UniformMapAO_ID;
-		public readonly int UniformMapNormal_ID;
-		public readonly int UniformMapHeight_ID;
 		public readonly int VertexArrayObject_ID;
+
+		private Texture[] FramebufferTextures;
+		public readonly int FramebufferGeometry;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
@@ -127,21 +123,44 @@ namespace DominusCore {
 			UniformView_ID = GL.GetUniformLocation(ShaderProgram_ID, "view");
 			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
 
-			UniformMapDiffuse_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_diffuse");
-			UniformMapGloss_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_gloss");
-			UniformMapAO_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_ao");
-			UniformMapNormal_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_normal");
-			UniformMapHeight_ID = GL.GetUniformLocation(ShaderProgram_ID, "map_height");
-
+			TextureUniforms = new int[] {
+				GL.GetUniformLocation(ShaderProgram_ID, "map_diffuse"),
+				GL.GetUniformLocation(ShaderProgram_ID, "map_gloss"),
+				GL.GetUniformLocation(ShaderProgram_ID, "map_ao"),
+				GL.GetUniformLocation(ShaderProgram_ID, "map_normal"),
+				GL.GetUniformLocation(ShaderProgram_ID, "map_height")
+			};
 			VertexArrayObject_ID = GL.GenVertexArray();
+
+			FramebufferGeometry = GL.GenFramebuffer();
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
+			FramebufferTextures = new Texture[] { new Texture(0), new Texture(1), new Texture(2) };
+			int depth = GL.GenTexture();
+			GL.BindTexture(TextureTarget.Texture2D, depth);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24, Game.WindowSize.X, Game.WindowSize.Y,
+						  0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
+									TextureTarget.Texture2D, depth, 0);
+			DrawBuffersEnum[] attachments = new DrawBuffersEnum[FramebufferTextures.Length];
+			for (int i = 0; i < attachments.Length; i++)
+				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
+			GL.DrawBuffers(attachments.Length, attachments);
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
 		public ShaderProgramGeometry use() {
 			GL.UseProgram(ShaderProgram_ID);
 			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentShader = this;
+			Game.CurrentPass = Game.RenderPass.Geometry;
 			return this;
+		}
+
+		public void BindFramebufferTextures() {
+			FramebufferTextures[0].Bind(0, Game.LightingShader.UniformGPosition);
+			FramebufferTextures[1].Bind(1, Game.LightingShader.UniformGNormal);
+			FramebufferTextures[2].Bind(2, Game.LightingShader.UniformGAlbedoSpec);
 		}
 	}
 
@@ -165,6 +184,9 @@ namespace DominusCore {
 		private readonly static int MAX_LIGHT_COUNT = 16;
 		private readonly LightUniforms[] UniformLights_ID = new LightUniforms[MAX_LIGHT_COUNT];
 		public readonly int UniformCameraPosition_ID;
+		public readonly int UniformGPosition;
+		public readonly int UniformGNormal;
+		public readonly int UniformGAlbedoSpec;
 		/// <summary> Stores the next available light index during renderering, and reset every frame. </summary>
 		public int NextLightID = 0;
 
@@ -178,7 +200,12 @@ namespace DominusCore {
 					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].direction"),
 					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].strength"));
 			}
+
 			UniformCameraPosition_ID = GL.GetUniformLocation(ShaderProgram_ID, "cameraPosition");
+
+			UniformGPosition = GL.GetUniformLocation(ShaderProgram_ID, "gPosition");
+			UniformGNormal = GL.GetUniformLocation(ShaderProgram_ID, "gNormal");
+			UniformGAlbedoSpec = GL.GetUniformLocation(ShaderProgram_ID, "gAlbedoSpec");
 		}
 
 		/// <summary> Sets the uniforms for a single light. </summary>
@@ -192,7 +219,7 @@ namespace DominusCore {
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
 		public ShaderProgramLighting use() {
 			GL.UseProgram(ShaderProgram_ID);
-			Game.CurrentShader = this;
+			Game.CurrentPass = Game.RenderPass.Lighting;
 			return this;
 		}
 
@@ -202,7 +229,6 @@ namespace DominusCore {
 			NextLightID = 0;
 			for (int i = 0; i < MAX_LIGHT_COUNT; i++)
 				GL.Uniform1(UniformLights_ID[i].strength, 0.0f);
-
 		}
 	}
 }
