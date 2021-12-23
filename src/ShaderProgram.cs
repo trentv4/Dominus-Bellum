@@ -57,6 +57,7 @@ namespace DominusCore {
 		public readonly int UniformElementTexture_ID;
 		public readonly int UniformModel_ID;
 		public readonly int UniformDepth_ID;
+		public readonly int UniformIsFont_ID;
 		public readonly int VertexArrayObject_ID;
 
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
@@ -65,6 +66,7 @@ namespace DominusCore {
 			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
 			UniformDepth_ID = GL.GetUniformLocation(ShaderProgram_ID, "depth");
+			UniformIsFont_ID = GL.GetUniformLocation(ShaderProgram_ID, "isFont");
 			VertexArrayObject_ID = GL.GenVertexArray();
 		}
 
@@ -73,34 +75,18 @@ namespace DominusCore {
 			GL.UseProgram(ShaderProgram_ID);
 			GL.BindVertexArray(VertexArrayObject_ID);
 			Game.CurrentPass = pass;
+
 			if (pass == Game.RenderPass.InterfaceBackground) {
 				GL.Uniform1(UniformDepth_ID, 0.999999f);
-			} else {
-				GL.Uniform1(UniformDepth_ID, 0.0f);
+				GL.Uniform1(UniformIsFont_ID, 0);
+			} else if (pass == Game.RenderPass.InterfaceForeground) {
+				GL.Uniform1(UniformDepth_ID, 0.2f);
+				GL.Uniform1(UniformIsFont_ID, 0);
+			} else if (pass == Game.RenderPass.InterfaceText) {
+				GL.Uniform1(UniformDepth_ID, 0.1f);
+				GL.Uniform1(UniformIsFont_ID, 1);
 			}
-			return this;
-		}
-	}
 
-	/// <summary> Interface text shader program, with extra uniform IDs only needed for text drawing shaders. </summary>
-	public class ShaderProgramInterfaceText : ShaderProgram {
-		public readonly int UniformElementTexture_ID;
-		public readonly int UniformModel_ID;
-		public readonly int VertexArrayObject_ID;
-
-		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
-		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgramInterfaceText(params int[] shaders) : base(shaders) {
-			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
-			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
-			VertexArrayObject_ID = GL.GenVertexArray();
-		}
-
-		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public ShaderProgramInterfaceText use() {
-			GL.UseProgram(ShaderProgram_ID);
-			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentPass = Game.RenderPass.InterfaceText;
 			return this;
 		}
 	}

@@ -19,7 +19,6 @@ namespace DominusCore {
 		public static ShaderProgramGeometry GeometryShader;
 		public static ShaderProgramLighting LightingShader;
 		public static ShaderProgramInterface InterfaceShader;
-		public static ShaderProgramInterfaceText InterfaceTextShader;
 		/// <summary> The current render pass, usually set by ShaderProgram.use(). </summary>
 		public static RenderPass CurrentPass;
 
@@ -66,11 +65,11 @@ namespace DominusCore {
 			VSync = VSyncMode.Off; // On seems to break? I don't think this is really matching VSync rates correctly.
 
 			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceShader.glsl"));
-			InterfaceTextShader = new ShaderProgramInterfaceText(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceTextShader.glsl"));
 			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl"));
 			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl"));
 
 			Texture.MissingTexture = new Texture("assets/missing.png");
+			FontAtlas.Load("calibri", "assets/fonts/calibri.png", "assets/fonts/calibri.json");
 
 			// Create Drawable objects for each layer
 			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
@@ -132,7 +131,7 @@ namespace DominusCore {
 			drawcalls += InterfaceRoot.Draw();
 			InterfaceShader.use(RenderPass.InterfaceForeground);
 			drawcalls += InterfaceRoot.Draw();
-			InterfaceTextShader.use();
+			InterfaceShader.use(RenderPass.InterfaceText);
 			drawcalls += InterfaceRoot.Draw();
 
 			// Frame done

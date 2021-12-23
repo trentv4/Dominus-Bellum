@@ -63,12 +63,12 @@ namespace DominusCore {
 		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
 		public InterfaceImage(Texture texture, Game.RenderPass passToDrawIn) {
 			float[] vertexData = new float[]{
-				-1.0f, -1.0f, 0.0f, 1.0f,
-				-1.0f,  1.0f, 0.0f, 0.0f,
-				 1.0f, -1.0f, 1.0f, 1.0f,
-				-1.0f,  1.0f, 0.0f, 0.0f,
-				 1.0f, -1.0f, 1.0f, 1.0f,
-				 1.0f,  1.0f, 1.0f, 0.0f,
+				-1.0f, -1.0f, 0.0f, 0.0f,
+				-1.0f,  1.0f, 0.0f, 1.0f,
+				 1.0f, -1.0f, 1.0f, 0.0f,
+				-1.0f,  1.0f, 0.0f, 1.0f,
+				 1.0f, -1.0f, 1.0f, 0.0f,
+				 1.0f,  1.0f, 1.0f, 1.0f,
 			};
 
 			VertexBufferObject_ID = GL.GenBuffer();
@@ -85,6 +85,8 @@ namespace DominusCore {
 		public override bool DrawSelf() {
 			if (Game.CurrentPass != DrawPass) return false;
 
+			GL.BindVertexBuffer(0, VertexBufferObject_ID, (IntPtr)(0 * sizeof(float)), 4 * sizeof(float));
+			GL.BindVertexBuffer(1, VertexBufferObject_ID, (IntPtr)(2 * sizeof(float)), 4 * sizeof(float));
 			Matrix4 tempModelMatrix = ModelMatrix;
 			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref tempModelMatrix);
 			texture.Bind(0, Game.InterfaceShader.UniformElementTexture_ID);
@@ -131,6 +133,111 @@ namespace DominusCore {
 		public InterfaceImage SetPosition(Vector3 position) {
 			this.Position = position;
 			UpdateModelMatrix();
+			return this;
+		}
+	}
+
+	public class InterfaceString : Drawable {
+		public string TextContent { get; private set; }
+		public Vector2 Scale { get; private set; } = Vector2.One;
+		public Vector2 Position { get; private set; } = Vector2.Zero;
+		public float Width { get; private set; }
+		public float Opacity { get; private set; } = 1.0f;
+
+		private readonly int _elementBufferArrayID;
+		private readonly int _vertexBufferObjectID;
+		private FontAtlas _font;
+		private int _indexLength;
+
+		/// <summary> Creates a new InterfaceString and handles sending data to the GPU. </summary>
+		public InterfaceString(string font, string TextContent) {
+			_font = FontAtlas.GetFont(font);
+			_elementBufferArrayID = GL.GenBuffer();
+			_vertexBufferObjectID = GL.GenBuffer();
+
+			this.TextContent = TextContent;
+
+			UpdateStringOnGPU(TextContent);
+		}
+
+		/// <summary> Updates the vertex and index lists on the GPU for the new text. </summary>
+		private void UpdateStringOnGPU(string text) {
+			List<float> vertices = new List<float>();
+			List<uint> indices = new List<uint>();
+
+			List<int> unicodeList = new List<int>(text.Length);
+			for (int i = 0; i < text.Length; i++) {
+				unicodeList.Add(Char.ConvertToUtf32(text, i));
+				if (Char.IsHighSurrogate(text[i]))
+					i++;
+			}
+			float cursor = 0;
+			for (int i = 0; i < unicodeList.Count; i++) {
+				FontAtlas.Glyph g = _font.GetGlyph(unicodeList[i]);
+				vertices.AddRange(new float[] {
+					cursor + g.PositionOffset.X, 0 + g.PositionOffset.Y,
+					g.UVs[0].X, g.UVs[0].Y,
+					cursor + g.PositionOffset.X + g.Size.X, 0 + g.PositionOffset.Y,
+					g.UVs[1].X, g.UVs[1].Y,
+					cursor + g.PositionOffset.X, g.Size.Y + g.PositionOffset.Y,
+					g.UVs[2].X, g.UVs[2].Y,
+					cursor + g.PositionOffset.X + g.Size.X, g.Size.Y + g.PositionOffset.Y,
+					g.UVs[3].X, g.UVs[3].Y,
+				});
+				indices.AddRange(new uint[] { ((uint)i * 4) + 0, ((uint)i * 4) + 1, ((uint)i * 4) + 2, ((uint)i * 4) + 1, ((uint)i * 4) + 2, ((uint)i * 4) + 3 });
+				cursor += g.Advance;
+			}
+
+			float[] vert = vertices.ToArray();
+			uint[] ind = indices.ToArray();
+			GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferArrayID);
+			GL.BufferData(BufferTarget.ElementArrayBuffer, ind.Length * sizeof(uint), ind, BufferUsageHint.StaticDraw);
+			GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObjectID);
+			GL.BufferData(BufferTarget.ArrayBuffer, vert.Length * sizeof(float), vert, BufferUsageHint.StaticDraw);
+
+			_indexLength = ind.Length;
+			Width = cursor;
+		}
+
+		/// <summary> Draws the font on the GPU. This is done with the Interface shader, but the use of the font uniform causes this to be a text box. </summary>
+		public override bool DrawSelf() {
+			if (Game.CurrentPass != Game.RenderPass.InterfaceText) return false;
+
+			Matrix4 modelMatrix = Matrix4.Identity;
+			modelMatrix *= Matrix4.CreateScale(new Vector3(Scale.X, Scale.Y, 1f));
+			modelMatrix *= Matrix4.CreateTranslation(new Vector3(Position.X, Position.Y, 0f));
+			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref modelMatrix);
+
+			GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferArrayID);
+			GL.BindVertexBuffer(0, _vertexBufferObjectID, (IntPtr)(0 * sizeof(float)), 4 * sizeof(float));
+			GL.BindVertexBuffer(1, _vertexBufferObjectID, (IntPtr)(2 * sizeof(float)), 4 * sizeof(float));
+
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, _font.AtlasTexture.TextureID);
+
+			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, _indexLength, DrawElementsType.UnsignedInt, 0);
+			return true;
+		}
+
+		/// <summary> Chainable method to set the scale of this object. </summary>
+		public InterfaceString SetScale(Vector2 scale) {
+			this.Scale = scale;
+			return this;
+		}
+
+		/// <summary> Chainable method to set the scale of this object in all axis. </summary>
+		public InterfaceString SetScale(float scale) {
+			return SetScale(new Vector2(scale, scale));
+		}
+
+		/// <summary> Chainable method to set the position of this object. </summary>
+		public InterfaceString SetPosition(Vector2 position) {
+			this.Position = position;
+			return this;
+		}
+
+		public InterfaceString SetOpacity(float opacity) {
+			this.Opacity = opacity;
 			return this;
 		}
 	}

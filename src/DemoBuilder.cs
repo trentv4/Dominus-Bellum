@@ -18,7 +18,9 @@ namespace DominusCore {
 			Drawable Root = new Drawable();
 			InterfaceImage interfaceTest = new InterfaceImage(new Texture("assets/InterfaceTest.png"), Game.RenderPass.InterfaceForeground);
 			InterfaceImage background = new InterfaceImage(new Texture("assets/background.jpg"), Game.RenderPass.InterfaceBackground);
-			Root.AddChildren(interfaceTest, background);
+			InterfaceString str = new InterfaceString("calibri", "Testing testing 123").SetScale(new Vector2(0.1f, 0.25f)).SetPosition(new Vector2(-0.5f, -0.5f));
+
+			Root.AddChildren(interfaceTest, background, str);
 			return Root;
 		}
 

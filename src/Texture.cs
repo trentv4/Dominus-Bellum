@@ -10,7 +10,7 @@ using System;
 
 namespace DominusCore {
 	/// <summary> Class that wraps and provides helper methods for OpenGL textures and framebuffer textures. </summary>
-	internal class Texture {
+	public class Texture {
 		/// <summary> Dictionary to associate filesystem links to OpenGL texture IDs to prevent costly reloads. </summary>
 		private static readonly Dictionary<string, int> LOADED_TEXTURES = new Dictionary<string, int>();
 		/// <summary> OpenGL max anisotropic filtering level, determined by GPU. It shoots for 16x. </summary>
@@ -21,6 +21,7 @@ namespace DominusCore {
 
 		/// <summary> Creates a texture using anisotropic filtering, primarily meant for regular texture use. </summary>
 		public Texture(string location) {
+			StbImage.stbi__vertically_flip_on_load = 1;
 			if (LOADED_TEXTURES.ContainsKey(location)) {
 				this.TextureID = LOADED_TEXTURES[location];
 			} else {
