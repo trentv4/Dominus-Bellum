@@ -16,9 +16,14 @@ namespace DominusCore {
 
 		public static Drawable BuildDemoInterface_IngameTest() {
 			Drawable Root = new Drawable();
-			InterfaceImage interfaceTest = new InterfaceImage(Texture.CreateTexture("assets/InterfaceTest.png"), Game.RenderPass.InterfaceForeground);
-			InterfaceImage background = new InterfaceImage(Texture.CreateTexture("assets/background.jpg"), Game.RenderPass.InterfaceBackground);
-			InterfaceString str = new InterfaceString("calibri", "Testing testing 123").SetScale(new Vector2(0.1f, 0.25f)).SetPosition(new Vector2(-0.5f, -0.5f));
+
+			Vector2i s = Game.WindowSize;
+
+			InterfaceImage interfaceTest = new InterfaceImage(Texture.CreateTexture("assets/InterfaceTest.png"), Game.RenderPass.InterfaceForeground)
+			.SetScale(new Vector3(200f, 200f, 1)).SetPosition(new Vector3(200, 200, 1));
+			InterfaceImage background = new InterfaceImage(Texture.CreateTexture("assets/background.jpg"), Game.RenderPass.InterfaceBackground)
+			.SetScale(new Vector3(s.X / 2, s.Y / 2, 1)).SetPosition(new Vector3(s.X / 2, s.Y / 2, 1));
+			InterfaceString str = new InterfaceString("calibri", "Testing testing 123").SetScale(new Vector2(35)).SetPosition(new Vector2(s.X / 2, 10));
 
 			Root.AddChildren(interfaceTest, background, str);
 			return Root;

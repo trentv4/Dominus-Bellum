@@ -10,6 +10,7 @@ using System.Linq;
 
 namespace DominusCore {
 	public class Game : GameWindow {
+		public Game INSTANCE;
 		// Constants
 		public static readonly Vector2i WindowSize = new Vector2i(1600, 900);
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180. </summary>
@@ -110,12 +111,18 @@ namespace DominusCore {
 			long frameStart = frameTimer.ElapsedTicks;
 			frameTimer.Start();
 
+
+			Vector2 ProjectMatrixNearFar = new Vector2(0.01f, 1000000f);
+
+			Matrix4 Perspective3D = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)Size.X / (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
+			Matrix4 Perspective2D = Matrix4.CreateOrthographicOffCenter(0f, (float)Size.X, 0f, (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
+
 			BeginPass("G-Buffer");
 			FramebufferGeometry.Use().Reset();
 			GeometryShader.use();
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
-			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref CameraPerspectiveMatrix);
+			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref Perspective3D);
 			int drawcalls = SceneRoot.Draw();
 			EndPass();
 
@@ -141,6 +148,7 @@ namespace DominusCore {
 			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry.FramebufferID);
 			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
 			InterfaceShader.use(RenderPass.InterfaceBackground);
+			GL.UniformMatrix4(InterfaceShader.UniformPerspective_ID, true, ref Perspective2D);
 			drawcalls += InterfaceRoot.Draw();
 			InterfaceShader.use(RenderPass.InterfaceForeground);
 			drawcalls += InterfaceRoot.Draw();
@@ -217,6 +225,7 @@ namespace DominusCore {
 				Title = "Display",
 				WindowBorder = WindowBorder.Fixed
 			})) {
+				g.INSTANCE = g;
 				g.Run();
 			}
 		}

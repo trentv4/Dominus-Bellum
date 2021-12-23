@@ -57,6 +57,7 @@ namespace DominusCore {
 		public readonly int UniformElementTexture_ID;
 		public readonly int UniformModel_ID;
 		public readonly int UniformDepth_ID;
+		public readonly int UniformPerspective_ID;
 		public readonly int UniformIsFont_ID;
 		public readonly int VertexArrayObject_ID;
 
@@ -66,6 +67,7 @@ namespace DominusCore {
 			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
 			UniformDepth_ID = GL.GetUniformLocation(ShaderProgram_ID, "depth");
+			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
 			UniformIsFont_ID = GL.GetUniformLocation(ShaderProgram_ID, "isFont");
 			VertexArrayObject_ID = GL.GenVertexArray();
 		}

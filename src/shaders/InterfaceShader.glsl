@@ -3,11 +3,12 @@ layout(location=0) in vec2 _position;
 layout(location=1) in vec2 _uv;
 
 uniform mat4 model;
+uniform mat4 perspective;
 
 out vec2 uv;
 
 void main() {
-	vec4 newPosition = vec4(_position.x, _position.y, 1, 1) * model;
+	vec4 newPosition = vec4(_position.x, _position.y, 1, 1) * model * perspective;
 	newPosition.z = -1;
 	// -1: foreground
 	gl_Position = newPosition;
