@@ -7,7 +7,7 @@ namespace DominusCore {
 
 		public static Drawable BuildDemoInterface_MainMenuTest() {
 			Drawable Root = new Drawable();
-			InterfaceImage img = new InterfaceImage(new Texture("assets/background.jpg"), Game.RenderPass.InterfaceForeground);
+			InterfaceImage img = new InterfaceImage(Texture.CreateTexture("assets/background.jpg"), Game.RenderPass.InterfaceForeground);
 			img.SetScale(0.25f);
 			img.SetPosition(new Vector3(0.5f, 0.0f, 0.0f));
 			Root.AddChild(img);
@@ -16,8 +16,8 @@ namespace DominusCore {
 
 		public static Drawable BuildDemoInterface_IngameTest() {
 			Drawable Root = new Drawable();
-			InterfaceImage interfaceTest = new InterfaceImage(new Texture("assets/InterfaceTest.png"), Game.RenderPass.InterfaceForeground);
-			InterfaceImage background = new InterfaceImage(new Texture("assets/background.jpg"), Game.RenderPass.InterfaceBackground);
+			InterfaceImage interfaceTest = new InterfaceImage(Texture.CreateTexture("assets/InterfaceTest.png"), Game.RenderPass.InterfaceForeground);
+			InterfaceImage background = new InterfaceImage(Texture.CreateTexture("assets/background.jpg"), Game.RenderPass.InterfaceBackground);
 			InterfaceString str = new InterfaceString("calibri", "Testing testing 123").SetScale(new Vector2(0.1f, 0.25f)).SetPosition(new Vector2(-0.5f, -0.5f));
 
 			Root.AddChildren(interfaceTest, background, str);
@@ -26,21 +26,21 @@ namespace DominusCore {
 
 		public static Drawable BuildDemoScene_TextureTest() {
 			Texture[] tilesTextures = {
-					new Texture("assets/tiles_diffuse.jpg"),
-					new Texture("assets/tiles_gloss.jpg"),
-					new Texture("assets/tiles_ao.jpg"),
-					new Texture("assets/tiles_normal.jpg"),
-					new Texture("assets/tiles_height.jpg")
+					Texture.CreateTexture("assets/tiles_diffuse.jpg"),
+					Texture.CreateTexture("assets/tiles_gloss.jpg"),
+					Texture.CreateTexture("assets/tiles_ao.jpg"),
+					Texture.CreateTexture("assets/tiles_normal.jpg"),
+					Texture.CreateTexture("assets/tiles_height.jpg")
 			};
 			Model circle = Model.CreateCircle(90, tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(1.0f);
 			Model plane = Model.CreateDrawablePlane(tilesTextures).SetPosition(new Vector3(20, 2, 10)).SetScale(10.0f);
 			Model cube = Model.CreateDrawableCube(tilesTextures).SetPosition(new Vector3(20, 4, 5)).SetScale(new Vector3(0.25f, 0.25f, 0.25f));
 			Model lightCube = Model.CreateDrawableCube(new Texture[] {
-					new Texture("assets/tiles_blank.png"),
-					new Texture("assets/tiles_blank.png"),
-					new Texture("assets/tiles_blank.png"),
-					new Texture("assets/tiles_blank.png"),
-					new Texture("assets/tiles_blank.png")
+					Texture.CreateTexture("assets/tiles_blank.png"),
+					Texture.CreateTexture("assets/tiles_blank.png"),
+					Texture.CreateTexture("assets/tiles_blank.png"),
+					Texture.CreateTexture("assets/tiles_blank.png"),
+					Texture.CreateTexture("assets/tiles_blank.png")
 				}).SetPosition(new Vector3(20, 5, 6)).SetScale(0.25f);
 
 			Light[] SceneLights = new Light[] {

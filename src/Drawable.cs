@@ -89,7 +89,7 @@ namespace DominusCore {
 			GL.BindVertexBuffer(1, VertexBufferObject_ID, (IntPtr)(2 * sizeof(float)), 4 * sizeof(float));
 			Matrix4 tempModelMatrix = ModelMatrix;
 			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref tempModelMatrix);
-			texture.Bind(0, Game.InterfaceShader.UniformElementTexture_ID);
+			texture.Bind();
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 6);
 			return true;
 		}
@@ -288,8 +288,10 @@ namespace DominusCore {
 			GL.BindVertexBuffer(1, VertexBufferObject_ID, (IntPtr)(3 * sizeof(float)), stride);
 			GL.BindVertexBuffer(2, VertexBufferObject_ID, (IntPtr)(5 * sizeof(float)), stride);
 			GL.BindVertexBuffer(3, VertexBufferObject_ID, (IntPtr)(9 * sizeof(float)), stride);
-			for (int i = 0; i < textures.Length; i++)
-				textures[i].Bind(i, Game.GeometryShader.TextureUniforms[i]);
+			for (int i = 0; i < textures.Length; i++) {
+				GL.Uniform1(Game.GeometryShader.TextureUniforms[i], i);
+				textures[i].Bind(i);
+			}
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
 			return true;
 		}
@@ -353,21 +355,11 @@ namespace DominusCore {
 
 					List<Texture> t = new List<Texture>();
 
-					t.Add(mat.HasTextureDiffuse ?
-						  new Texture($"{mat.Name}-diffuse", scene.Textures[mat.TextureDiffuse.TextureIndex])
-						  : Texture.MissingTexture);
-					t.Add(mat.HasTextureSpecular ?
-						  new Texture($"{mat.Name}-gloss", scene.Textures[mat.TextureSpecular.TextureIndex])
-						  : Texture.MissingTexture);
-					t.Add(mat.HasTextureAmbientOcclusion ?
-						  new Texture($"{mat.Name}-ao", scene.Textures[mat.TextureAmbientOcclusion.TextureIndex])
-						  : Texture.MissingTexture);
-					t.Add(mat.HasTextureNormal ?
-						  new Texture($"{mat.Name}-normal", scene.Textures[mat.TextureNormal.TextureIndex])
-						  : Texture.MissingTexture);
-					t.Add(mat.HasTextureHeight ?
-						  new Texture($"{mat.Name}-height", scene.Textures[mat.TextureHeight.TextureIndex])
-						  : Texture.MissingTexture);
+					t.Add(Texture.CreateTexture($"{mat.Name}-diffuse", scene.Textures[mat.TextureDiffuse.TextureIndex], TextureMinFilter.Linear, OpenTK.Graphics.OpenGL4.TextureWrapMode.ClampToBorder));
+					t.Add(Texture.CreateTexture($"{mat.Name}-gloss", scene.Textures[mat.TextureSpecular.TextureIndex], TextureMinFilter.Linear, OpenTK.Graphics.OpenGL4.TextureWrapMode.ClampToBorder));
+					t.Add(Texture.CreateTexture($"{mat.Name}-ao", scene.Textures[mat.TextureAmbientOcclusion.TextureIndex], TextureMinFilter.Linear, OpenTK.Graphics.OpenGL4.TextureWrapMode.ClampToBorder));
+					t.Add(Texture.CreateTexture($"{mat.Name}-normal", scene.Textures[mat.TextureNormal.TextureIndex], TextureMinFilter.Linear, OpenTK.Graphics.OpenGL4.TextureWrapMode.ClampToBorder));
+					t.Add(Texture.CreateTexture($"{mat.Name}-height", scene.Textures[mat.TextureHeight.TextureIndex], TextureMinFilter.Linear, OpenTK.Graphics.OpenGL4.TextureWrapMode.ClampToBorder));
 
 					List<float> vertexData = new List<float>(vertices.Length * 12);
 					for (int i = 0; i < vertices.Length; i++) {

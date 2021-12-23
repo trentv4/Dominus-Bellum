@@ -99,9 +99,6 @@ namespace DominusCore {
 		public readonly int UniformPerspective_ID;
 		public readonly int VertexArrayObject_ID;
 
-		private Texture[] FramebufferTextures;
-		public readonly int FramebufferGeometry;
-
 		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
 		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
 		public ShaderProgramGeometry(params int[] shaders) : base(shaders) {
@@ -117,22 +114,6 @@ namespace DominusCore {
 				GL.GetUniformLocation(ShaderProgram_ID, "map_height")
 			};
 			VertexArrayObject_ID = GL.GenVertexArray();
-
-			FramebufferGeometry = GL.GenFramebuffer();
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, FramebufferGeometry);
-			FramebufferTextures = new Texture[] { new Texture(0), new Texture(1), new Texture(2) };
-			int depth = GL.GenTexture();
-			GL.BindTexture(TextureTarget.Texture2D, depth);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24, Game.WindowSize.X, Game.WindowSize.Y,
-						  0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
-									TextureTarget.Texture2D, depth, 0);
-			DrawBuffersEnum[] attachments = new DrawBuffersEnum[FramebufferTextures.Length];
-			for (int i = 0; i < attachments.Length; i++)
-				attachments[i] = DrawBuffersEnum.ColorAttachment0 + i;
-			GL.DrawBuffers(attachments.Length, attachments);
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
@@ -141,12 +122,6 @@ namespace DominusCore {
 			GL.BindVertexArray(VertexArrayObject_ID);
 			Game.CurrentPass = Game.RenderPass.Geometry;
 			return this;
-		}
-
-		public void BindFramebufferTextures() {
-			FramebufferTextures[0].Bind(0, Game.LightingShader.UniformGPosition);
-			FramebufferTextures[1].Bind(1, Game.LightingShader.UniformGNormal);
-			FramebufferTextures[2].Bind(2, Game.LightingShader.UniformGAlbedoSpec);
 		}
 	}
 

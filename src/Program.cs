@@ -22,6 +22,8 @@ namespace DominusCore {
 		/// <summary> The current render pass, usually set by ShaderProgram.use(). </summary>
 		public static RenderPass CurrentPass;
 
+		public static Framebuffer FramebufferGeometry;
+
 		// Content
 		private Drawable SceneRoot;
 		private Drawable InterfaceRoot;
@@ -39,6 +41,7 @@ namespace DominusCore {
 		private static Stopwatch frameTimer = new Stopwatch();
 		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring. </summary>
 		private double[] frameTimes = new double[30];
+		private int _debugGroupTracker = 0;
 
 		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
@@ -68,7 +71,12 @@ namespace DominusCore {
 			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl"));
 			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl"));
 
-			Texture.MissingTexture = new Texture("assets/missing.png");
+			FramebufferGeometry = new Framebuffer();
+			FramebufferGeometry.AddDepthBuffer(PixelInternalFormat.DepthComponent24);
+			FramebufferGeometry.AddAttachment(PixelInternalFormat.Rgba16f, PixelFormat.Rgba, "GB: gPosition");
+			FramebufferGeometry.AddAttachment(PixelInternalFormat.Rgba16f, PixelFormat.Rgba, "GB: gNormal");
+			FramebufferGeometry.AddAttachment(PixelInternalFormat.Rgba16f, PixelFormat.Rgba, "GB: gAlbedoSpec");
+
 			FontAtlas.Load("calibri", "assets/fonts/calibri.png", "assets/fonts/calibri.json");
 
 			// Create Drawable objects for each layer
@@ -102,37 +110,43 @@ namespace DominusCore {
 			long frameStart = frameTimer.ElapsedTicks;
 			frameTimer.Start();
 
-			// Geometry pass (world space)
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, GeometryShader.FramebufferGeometry);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			BeginPass("G-Buffer");
+			FramebufferGeometry.Use().Reset();
 			GeometryShader.use();
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref CameraPerspectiveMatrix);
 			int drawcalls = SceneRoot.Draw();
+			EndPass();
 
-			// Lighting pass (screen space)
+			BeginPass("Lighting");
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			LightingShader.use();
-			GeometryShader.BindFramebufferTextures();
+			FramebufferGeometry.GetAttachment(0).Bind(0);
+			GL.Uniform1(LightingShader.UniformGPosition, 0);
+			FramebufferGeometry.GetAttachment(1).Bind(1);
+			GL.Uniform1(LightingShader.UniformGNormal, 1);
+			FramebufferGeometry.GetAttachment(2).Bind(2);
+			GL.Uniform1(LightingShader.UniformGAlbedoSpec, 2);
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
 			drawcalls += SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
 			drawcalls++;
 			LightingShader.ResetLights();
+			EndPass();
 
+			BeginPass("Interface");
 			// Copy geometry depth to default framebuffer (world space -> screen space)
-			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, GeometryShader.FramebufferGeometry);
+			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry.FramebufferID);
 			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
-
-			// 2d interface (screen space)
 			InterfaceShader.use(RenderPass.InterfaceBackground);
 			drawcalls += InterfaceRoot.Draw();
 			InterfaceShader.use(RenderPass.InterfaceForeground);
 			drawcalls += InterfaceRoot.Draw();
 			InterfaceShader.use(RenderPass.InterfaceText);
 			drawcalls += InterfaceRoot.Draw();
+			EndPass();
 
 			// Frame done
 			Context.SwapBuffers();
@@ -143,6 +157,7 @@ namespace DominusCore {
 			frameTimes[frameTimes.Length - 1] = 1000f * (frameTimer.ElapsedTicks - frameStart) / Stopwatch.Frequency;
 			double time = frameTimes.Sum() / frameTimes.Length;
 			this.Title = $"Display - FPS: {1000 / time,-1:F1} Drawcalls: {drawcalls} Frametime: {time,-4:F2}ms, Budget: {time / 10/*ms*/,-2:P2} (target: 10ms)";
+			_debugGroupTracker = 0;
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
@@ -175,22 +190,33 @@ namespace DominusCore {
 				throw new Exception(messageString);
 		}
 
+		/// <summary> Starts a GPU debug group, used for grouping operations together into one section for debugging in RenderDoc. </summary>
+		private void BeginPass(string title) {
+			GL.PushDebugGroup(DebugSourceExternal.DebugSourceApplication, _debugGroupTracker++, title.Length, title);
+		}
+
+		/// <summary> Ends the current debug group on the GPU. </summary>
+		private void EndPass() {
+			GL.PopDebugGroup();
+		}
+
+		/// <summary> Assigns a debug label to a specified GL object - useful in debugging tools similar to debug groups. </summary>
+		private static void DebugLabel(ObjectLabelIdentifier type, int id, string label) {
+			GL.ObjectLabel(type, id, label.Length, label);
+		}
+
 		public static void Main(string[] args) {
 			Console.WriteLine("Initializing");
 			Assimp.Unmanaged.AssimpLibrary.Instance.LoadLibrary();
 
-			GameWindowSettings gws = new GameWindowSettings() {
+			using (Game g = new Game(new GameWindowSettings() {
 				IsMultiThreaded = true,
 				UpdateFrequency = 60
-			};
-
-			NativeWindowSettings nws = new NativeWindowSettings() {
+			}, new NativeWindowSettings() {
 				Size = WindowSize,
 				Title = "Display",
 				WindowBorder = WindowBorder.Fixed
-			};
-
-			using (Game g = new Game(gws, nws)) {
+			})) {
 				g.Run();
 			}
 		}

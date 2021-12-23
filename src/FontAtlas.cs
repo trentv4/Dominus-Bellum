@@ -100,7 +100,7 @@ namespace DominusCore {
 				}
 				glyphs[i] = currentGlyph;
 			}
-			_loadedFonts.Add(font, new FontAtlas(glyphs, font, new Texture(fontAtlasPicture), size));
+			_loadedFonts.Add(font, new FontAtlas(glyphs, font, Texture.CreateTexture(fontAtlasPicture), size));
 			Console.WriteLine($"Font file loaded: {font}");
 		}
 	}
