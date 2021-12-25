@@ -68,9 +68,9 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DepthTest);
 			VSync = VSyncMode.Off; // On seems to break? I don't think this is really matching VSync rates correctly.
 
-			InterfaceShader = new ShaderProgramInterface(ShaderProgram.CreateShaderFromUnified("src/shaders/InterfaceShader.glsl"));
-			LightingShader = new ShaderProgramLighting(ShaderProgram.CreateShaderFromUnified("src/shaders/LightingShader.glsl"));
-			GeometryShader = new ShaderProgramGeometry(ShaderProgram.CreateShaderFromUnified("src/shaders/GeometryShader.glsl"));
+			InterfaceShader = new ShaderProgramInterface("src/shaders/InterfaceShader.glsl");
+			LightingShader = new ShaderProgramLighting("src/shaders/LightingShader.glsl");
+			GeometryShader = new ShaderProgramGeometry("src/shaders/GeometryShader.glsl");
 
 			FramebufferGeometry = new Framebuffer();
 			FramebufferGeometry.AddDepthBuffer(PixelInternalFormat.DepthComponent24);
@@ -84,23 +84,8 @@ namespace DominusCore {
 			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
 			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
 
-			// Interface VAO setup
-			GL.BindVertexArray(InterfaceShader.VertexArrayObject_ID);
-			GL.EnableVertexAttribArray(0);
-			GL.EnableVertexAttribArray(1);
-			GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0 * sizeof(float)); /* xy */
-			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float)); /* uv */
-
-			// Geometry VAO setup
-			GL.BindVertexArray(GeometryShader.VertexArrayObject_ID);
-			GL.EnableVertexAttribArray(0);
-			GL.EnableVertexAttribArray(1);
-			GL.EnableVertexAttribArray(2);
-			GL.EnableVertexAttribArray(3);
-			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 0 * sizeof(float)); /* xyz  */
-			GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 12 * sizeof(float), 3 * sizeof(float)); /* uv   */
-			GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 12 * sizeof(float), 5 * sizeof(float)); /* rgba */
-			GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 9 * sizeof(float)); /* normal */
+			InterfaceShader.SetVertexAttribPointers(new[] { 2, 2 });
+			GeometryShader.SetVertexAttribPointers(new[] { 3, 2, 4, 3 });
 
 			Console.WriteLine("OnRenderThreadStarted(): end");
 		}
@@ -119,7 +104,7 @@ namespace DominusCore {
 
 			BeginPass("G-Buffer");
 			FramebufferGeometry.Use().Reset();
-			GeometryShader.use();
+			GeometryShader.Use(RenderPass.Geometry);
 			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref Perspective3D);
@@ -129,7 +114,7 @@ namespace DominusCore {
 			BeginPass("Lighting");
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			LightingShader.use();
+			LightingShader.Use(RenderPass.Lighting);
 			FramebufferGeometry.GetAttachment(0).Bind(0);
 			GL.Uniform1(LightingShader.UniformGPosition, 0);
 			FramebufferGeometry.GetAttachment(1).Bind(1);
@@ -147,12 +132,12 @@ namespace DominusCore {
 			// Copy geometry depth to default framebuffer (world space -> screen space)
 			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry.FramebufferID);
 			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
-			InterfaceShader.use(RenderPass.InterfaceBackground);
+			InterfaceShader.Use(RenderPass.InterfaceBackground);
 			GL.UniformMatrix4(InterfaceShader.UniformPerspective_ID, true, ref Perspective2D);
 			drawcalls += InterfaceRoot.Draw();
-			InterfaceShader.use(RenderPass.InterfaceForeground);
+			InterfaceShader.Use(RenderPass.InterfaceForeground);
 			drawcalls += InterfaceRoot.Draw();
-			InterfaceShader.use(RenderPass.InterfaceText);
+			InterfaceShader.Use(RenderPass.InterfaceText);
 			drawcalls += InterfaceRoot.Draw();
 			EndPass();
 

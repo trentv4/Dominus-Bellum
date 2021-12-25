@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -7,76 +8,127 @@ namespace DominusCore {
 	/// <summary> Superclass for all shaderprograms. Handles attachment and cleanup of individual shaders. </summary>
 	public class ShaderProgram {
 		/// <summary> OpenGL ID for this shaderprogram. </summary>
-		public readonly int ShaderProgram_ID;
+		public int ShaderProgram_ID { get; private set; } = -1;
+		private readonly int _vertexArrayObject_ID;
+		private Shader[] _shaders;
 
-		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
-		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgram(params int[] shaders) {
+		public ShaderProgram(string unified) {
+			_vertexArrayObject_ID = GL.GenVertexArray();
+			_shaders = new Shader[] {
+				new Shader(unified, ShaderType.VertexShader, true),
+				new Shader(unified, ShaderType.FragmentShader, true)
+			};
 			ShaderProgram_ID = GL.CreateProgram();
-			foreach (int i in shaders)
-				GL.AttachShader(ShaderProgram_ID, i);
-			GL.LinkProgram(ShaderProgram_ID);
-			GL.UseProgram(ShaderProgram_ID);
-			foreach (int i in shaders)
-				GL.DeleteShader(i);
+			GL.AttachShader(ShaderProgram_ID, _shaders[0].shaderID);
+			GL.AttachShader(ShaderProgram_ID, _shaders[1].shaderID);
+			TryLoadShaders();
 		}
 
-		/// <summary> Creates, loads, and compiles a shader given a file. Handles errors in the shader. Returns the shader ID. </summary>
-		public static int CreateShader(string source, ShaderType type) {
-			Console.WriteLine($"Create shader: \"{source}\"");
-			int shader = GL.CreateShader(type);
-			GL.ShaderSource(shader, new StreamReader(source).ReadToEnd());
-			GL.CompileShader(shader);
-			if (GL.GetShaderInfoLog(shader) != System.String.Empty)
-				throw new Exception($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
-			return shader;
-		}
-
-		/// <summary> Creates, loads, splits, and compiles a shader given a file. Handles errors in the shaders. Returns the shader IDs as an array. 
-		/// <br/> This is the method used for combined shader files. To create a combined shader file, place the vertex shader in a file,
-		/// then &lt; split &gt; with no spaces, then your fragment shader. This is meant to facilitate easier debugging for new shaders. </summary>
-		public static int[] CreateShaderFromUnified(string source) {
-			Console.WriteLine($"Creating unified shader: \"{source}\"");
-			ShaderType[] types = new ShaderType[] { ShaderType.VertexShader, ShaderType.FragmentShader };
-			string[] sources = new StreamReader(source).ReadToEnd().Split("<split>");
-			int[] shaderIDs = new int[sources.Length];
-			for (int i = 0; i < sources.Length; i++) {
-				int shader = GL.CreateShader(types[i]);
-				GL.ShaderSource(shader, sources[i]);
-				GL.CompileShader(shader);
-				if (GL.GetShaderInfoLog(shader) != System.String.Empty)
-					throw new Exception($"\tError in \"{source}\" shader: \n{GL.GetShaderInfoLog(shader)}");
-				shaderIDs[i] = shader;
+		private void TryLoadShaders() {
+			bool isAnyShaderReloaded = false;
+			foreach (Shader s in _shaders) {
+				if (s.TryLoad()) isAnyShaderReloaded = true;
 			}
-			return shaderIDs;
+			if (isAnyShaderReloaded) {
+				GL.LinkProgram(ShaderProgram_ID);
+				GL.UseProgram(ShaderProgram_ID);
+				if (GL.GetProgramInfoLog(ShaderProgram_ID) != System.String.Empty) {
+					Console.WriteLine($"Error linking shader program: {GL.GetProgramInfoLog(ShaderProgram_ID)}");
+				}
+			}
+
+			SetUniforms();
+		}
+
+		public virtual ShaderProgram Use(Game.RenderPass pass) {
+			TryLoadShaders();
+			GL.UseProgram(ShaderProgram_ID);
+			GL.BindVertexArray(_vertexArrayObject_ID);
+			Game.CurrentPass = pass;
+			return this;
+		}
+
+		/// <summary> Assigns the pre-determined vertex attrib information to attrib pointers. This is called once after
+		/// creating at least one VBO in this format. Provide the attribs as a series of ints specifying attrib size.
+		/// For example, [vec3, vec4, vec3, vec2] would be int[] { 3, 4, 3, 2 }. </summary>
+		public virtual ShaderProgram SetVertexAttribPointers(int[] attribs) {
+			Use(Game.CurrentPass);
+			int stride = attribs.Sum() * sizeof(float);
+			int runningTotal = 0;
+			for (int i = 0; i < attribs.Length; i++) {
+				GL.EnableVertexAttribArray(i);
+				GL.VertexAttribPointer(i, attribs[i], VertexAttribPointerType.Float, false, stride, runningTotal);
+				runningTotal += attribs[i] * sizeof(float);
+			}
+			return this;
+		}
+
+		protected virtual void SetUniforms() { }
+
+		private class Shader {
+			internal readonly string filePath;
+			internal DateTime lastWriteTime;
+			internal int shaderID;
+			internal bool isUnified;
+			internal ShaderType type;
+
+			internal Shader(string filePath, ShaderType type, bool isUnified) {
+				this.filePath = filePath;
+				this.lastWriteTime = DateTime.UnixEpoch;
+				this.shaderID = GL.CreateShader(type);
+				this.isUnified = isUnified;
+				this.type = type;
+			}
+
+			internal bool TryLoad() {
+				DateTime updatedLastTime = File.GetLastWriteTime(filePath);
+				if (lastWriteTime == updatedLastTime)
+					return false;
+				lastWriteTime = updatedLastTime;
+
+				string shaderSource = "";
+				if (isUnified) {
+					string[] tempSources = new StreamReader(filePath).ReadToEnd().Split("<split>");
+					if (type == ShaderType.VertexShader) shaderSource = tempSources[0];
+					if (type == ShaderType.FragmentShader) shaderSource = tempSources[1];
+				} else {
+					shaderSource = new StreamReader(filePath).ReadToEnd();
+				}
+
+				GL.ShaderSource(shaderID, shaderSource);
+				GL.CompileShader(shaderID);
+
+				if (GL.GetShaderInfoLog(shaderID) != System.String.Empty) {
+					Console.WriteLine($"Error compiling shader {filePath}: {GL.GetShaderInfoLog(shaderID)}");
+				}
+				return true;
+			}
 		}
 	}
 
+
+
 	/// <summary> Interface shader program, with extra uniform IDs only needed for interface shaders. </summary>
 	public class ShaderProgramInterface : ShaderProgram {
-		public readonly int UniformElementTexture_ID;
-		public readonly int UniformModel_ID;
-		public readonly int UniformDepth_ID;
-		public readonly int UniformPerspective_ID;
-		public readonly int UniformIsFont_ID;
-		public readonly int VertexArrayObject_ID;
+		public ShaderProgramInterface(string unifiedPath) : base(unifiedPath) { }
 
-		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
-		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgramInterface(params int[] shaders) : base(shaders) {
+		public int UniformElementTexture_ID { get; private set; } = -1;
+		public int UniformModel_ID { get; private set; } = -1;
+		public int UniformDepth_ID { get; private set; } = -1;
+		public int UniformPerspective_ID { get; private set; } = -1;
+		public int UniformIsFont_ID { get; private set; } = -1;
+
+		protected override void SetUniforms() {
 			UniformElementTexture_ID = GL.GetUniformLocation(ShaderProgram_ID, "elementTexture");
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
 			UniformDepth_ID = GL.GetUniformLocation(ShaderProgram_ID, "depth");
 			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
 			UniformIsFont_ID = GL.GetUniformLocation(ShaderProgram_ID, "isFont");
-			VertexArrayObject_ID = GL.GenVertexArray();
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public ShaderProgramInterface use(Game.RenderPass pass) {
-			GL.UseProgram(ShaderProgram_ID);
-			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentPass = pass;
+		public override ShaderProgramInterface Use(Game.RenderPass pass) {
+			base.Use(pass);
 
 			if (pass == Game.RenderPass.InterfaceBackground) {
 				GL.Uniform1(UniformDepth_ID, 0.999999f);
@@ -95,15 +147,14 @@ namespace DominusCore {
 
 	/// <summary> Geometry shader program, with extra uniform IDs only needed for geometry shaders. </summary>
 	public class ShaderProgramGeometry : ShaderProgram {
-		public readonly int[] TextureUniforms;
-		public readonly int UniformModel_ID;
-		public readonly int UniformView_ID;
-		public readonly int UniformPerspective_ID;
-		public readonly int VertexArrayObject_ID;
+		public ShaderProgramGeometry(string unifiedPath) : base(unifiedPath) { }
 
-		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
-		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgramGeometry(params int[] shaders) : base(shaders) {
+		public int[] TextureUniforms { get; private set; }
+		public int UniformModel_ID { get; private set; } = -1;
+		public int UniformView_ID { get; private set; } = -1;
+		public int UniformPerspective_ID { get; private set; } = -1;
+
+		protected override void SetUniforms() {
 			UniformModel_ID = GL.GetUniformLocation(ShaderProgram_ID, "model");
 			UniformView_ID = GL.GetUniformLocation(ShaderProgram_ID, "view");
 			UniformPerspective_ID = GL.GetUniformLocation(ShaderProgram_ID, "perspective");
@@ -115,47 +166,23 @@ namespace DominusCore {
 				GL.GetUniformLocation(ShaderProgram_ID, "map_normal"),
 				GL.GetUniformLocation(ShaderProgram_ID, "map_height")
 			};
-			VertexArrayObject_ID = GL.GenVertexArray();
-		}
-
-		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public ShaderProgramGeometry use() {
-			GL.UseProgram(ShaderProgram_ID);
-			GL.BindVertexArray(VertexArrayObject_ID);
-			Game.CurrentPass = Game.RenderPass.Geometry;
-			return this;
 		}
 	}
 
 	/// <summary> Lighting shader program, with extra uniform IDs only needed for lighting shaders. </summary>
 	public class ShaderProgramLighting : ShaderProgram {
-		/// <summary> Data format for a single Light in the shader, storing the uniform locations. </summary>
-		public struct LightUniforms {
-			public int position;
-			public int color;
-			public int direction;
-			public int strength;
-
-			public LightUniforms(int position, int color, int direction, int strength) {
-				this.position = position;
-				this.color = color;
-				this.direction = direction;
-				this.strength = strength;
-			}
-		}
+		public ShaderProgramLighting(string unifiedPath) : base(unifiedPath) { }
 
 		private readonly static int MAX_LIGHT_COUNT = 16;
 		private readonly LightUniforms[] UniformLights_ID = new LightUniforms[MAX_LIGHT_COUNT];
-		public readonly int UniformCameraPosition_ID;
-		public readonly int UniformGPosition;
-		public readonly int UniformGNormal;
-		public readonly int UniformGAlbedoSpec;
+		public int UniformCameraPosition_ID { get; private set; } = -1;
+		public int UniformGPosition { get; private set; } = -1;
+		public int UniformGNormal { get; private set; } = -1;
+		public int UniformGAlbedoSpec { get; private set; } = -1;
 		/// <summary> Stores the next available light index during renderering, and reset every frame. </summary>
 		public int NextLightID = 0;
 
-		/// <summary> Creates and uses a new shader program using provided shader IDs to attach. <br/>
-		/// Use ShaderProgram.CreateShader(...) to get these IDs.</summary>
-		public ShaderProgramLighting(params int[] shaders) : base(shaders) {
+		protected override void SetUniforms() {
 			for (int i = 0; i < MAX_LIGHT_COUNT; i++) {
 				UniformLights_ID[i] = new LightUniforms(
 					GL.GetUniformLocation(ShaderProgram_ID, $"lights[{i}].position"),
@@ -179,19 +206,27 @@ namespace DominusCore {
 			GL.Uniform1(UniformLights_ID[i].strength, strength);
 		}
 
-		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public ShaderProgramLighting use() {
-			GL.UseProgram(ShaderProgram_ID);
-			Game.CurrentPass = Game.RenderPass.Lighting;
-			return this;
-		}
-
 		/// <summary> Resets the NextLightID to zero, and sets the strength of all lights in the scene to 0 preventing drawing.
 		/// This prevents lights being "left on" as the scene changes. </summary>
 		public void ResetLights() {
 			NextLightID = 0;
 			for (int i = 0; i < MAX_LIGHT_COUNT; i++)
 				GL.Uniform1(UniformLights_ID[i].strength, 0.0f);
+		}
+
+		/// <summary> Data format for a single Light in the shader, storing the uniform locations. </summary>
+		public struct LightUniforms {
+			public int position;
+			public int color;
+			public int direction;
+			public int strength;
+
+			public LightUniforms(int position, int color, int direction, int strength) {
+				this.position = position;
+				this.color = color;
+				this.direction = direction;
+				this.strength = strength;
+			}
 		}
 	}
 }
