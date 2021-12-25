@@ -24,6 +24,7 @@ namespace DominusCore {
 		public static RenderPass CurrentPass;
 
 		public static Framebuffer FramebufferGeometry;
+		public static Framebuffer DefaultFramebuffer;
 
 		// Content
 		private Drawable SceneRoot;
@@ -72,6 +73,8 @@ namespace DominusCore {
 			LightingShader = new ShaderProgramLighting("src/shaders/LightingShader.glsl");
 			GeometryShader = new ShaderProgramGeometry("src/shaders/GeometryShader.glsl");
 
+			DefaultFramebuffer = new Framebuffer(0);
+
 			FramebufferGeometry = new Framebuffer();
 			FramebufferGeometry.AddDepthBuffer(PixelInternalFormat.DepthComponent24);
 			FramebufferGeometry.AddAttachment(PixelInternalFormat.Rgba16f, PixelFormat.Rgba, "GB: gPosition");
@@ -96,9 +99,7 @@ namespace DominusCore {
 			long frameStart = frameTimer.ElapsedTicks;
 			frameTimer.Start();
 
-
 			Vector2 ProjectMatrixNearFar = new Vector2(0.01f, 1000000f);
-
 			Matrix4 Perspective3D = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)Size.X / (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
 			Matrix4 Perspective2D = Matrix4.CreateOrthographicOffCenter(0f, (float)Size.X, 0f, (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
 
@@ -112,26 +113,20 @@ namespace DominusCore {
 			EndPass();
 
 			BeginPass("Lighting");
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			DefaultFramebuffer.Use().Reset();
 			LightingShader.Use(RenderPass.Lighting);
 			FramebufferGeometry.GetAttachment(0).Bind(0);
-			GL.Uniform1(LightingShader.UniformGPosition, 0);
 			FramebufferGeometry.GetAttachment(1).Bind(1);
-			GL.Uniform1(LightingShader.UniformGNormal, 1);
 			FramebufferGeometry.GetAttachment(2).Bind(2);
-			GL.Uniform1(LightingShader.UniformGAlbedoSpec, 2);
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
-			drawcalls += SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms
+			drawcalls += 1 + SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms for each light
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
-			drawcalls++;
 			LightingShader.ResetLights();
 			EndPass();
 
 			BeginPass("Interface");
 			// Copy geometry depth to default framebuffer (world space -> screen space)
-			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, FramebufferGeometry.FramebufferID);
-			GL.BlitFramebuffer(0, 0, WindowSize.X, WindowSize.Y, 0, 0, WindowSize.X, WindowSize.Y, ClearBufferMask.DepthBufferBit, BlitFramebufferFilter.Nearest);
+			DefaultFramebuffer.BlitFrom(FramebufferGeometry, ClearBufferMask.DepthBufferBit);
 			InterfaceShader.Use(RenderPass.InterfaceBackground);
 			GL.UniformMatrix4(InterfaceShader.UniformPerspective_ID, true, ref Perspective2D);
 			drawcalls += InterfaceRoot.Draw();

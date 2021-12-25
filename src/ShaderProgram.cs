@@ -176,9 +176,6 @@ namespace DominusCore {
 		private readonly static int MAX_LIGHT_COUNT = 16;
 		private readonly LightUniforms[] UniformLights_ID = new LightUniforms[MAX_LIGHT_COUNT];
 		public int UniformCameraPosition_ID { get; private set; } = -1;
-		public int UniformGPosition { get; private set; } = -1;
-		public int UniformGNormal { get; private set; } = -1;
-		public int UniformGAlbedoSpec { get; private set; } = -1;
 		/// <summary> Stores the next available light index during renderering, and reset every frame. </summary>
 		public int NextLightID = 0;
 
@@ -193,9 +190,9 @@ namespace DominusCore {
 
 			UniformCameraPosition_ID = GL.GetUniformLocation(ShaderProgram_ID, "cameraPosition");
 
-			UniformGPosition = GL.GetUniformLocation(ShaderProgram_ID, "gPosition");
-			UniformGNormal = GL.GetUniformLocation(ShaderProgram_ID, "gNormal");
-			UniformGAlbedoSpec = GL.GetUniformLocation(ShaderProgram_ID, "gAlbedoSpec");
+			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gPosition"), 0);
+			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gNormal"), 1);
+			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gAlbedoSpec"), 2);
 		}
 
 		/// <summary> Sets the uniforms for a single light. </summary>
