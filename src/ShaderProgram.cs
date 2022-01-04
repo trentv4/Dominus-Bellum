@@ -22,6 +22,7 @@ namespace DominusCore {
 			GL.AttachShader(ShaderProgram_ID, _shaders[0].shaderID);
 			GL.AttachShader(ShaderProgram_ID, _shaders[1].shaderID);
 			TryLoadShaders();
+			SetOneTimeUniforms();
 		}
 
 		private void TryLoadShaders() {
@@ -65,6 +66,8 @@ namespace DominusCore {
 
 		protected virtual void SetUniforms() { }
 
+		protected virtual void SetOneTimeUniforms() { }
+
 		private class Shader {
 			internal readonly string filePath;
 			internal DateTime lastWriteTime;
@@ -105,8 +108,6 @@ namespace DominusCore {
 			}
 		}
 	}
-
-
 
 	/// <summary> Interface shader program, with extra uniform IDs only needed for interface shaders. </summary>
 	public class ShaderProgramInterface : ShaderProgram {
@@ -189,7 +190,9 @@ namespace DominusCore {
 			}
 
 			UniformCameraPosition_ID = GL.GetUniformLocation(ShaderProgram_ID, "cameraPosition");
+		}
 
+		protected override void SetOneTimeUniforms() {
 			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gPosition"), 0);
 			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gNormal"), 1);
 			GL.Uniform1(GL.GetUniformLocation(ShaderProgram_ID, "gAlbedoSpec"), 2);
