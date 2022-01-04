@@ -4,6 +4,7 @@ using OpenTK.Mathematics;
 using System.Collections.Generic;
 using Assimp;
 using System.IO;
+using StbImageSharp;
 
 namespace DominusCore {
 	/// <summary> Rendering node object, where anything drawn in a scene is a Drawable. This can be lights, models, fx, etc. </summary>
@@ -377,6 +378,54 @@ namespace DominusCore {
 			}
 
 			return a.SetPosition(new Vector3(20, -4, 5)).SetScale(2.0f).SetRotation(new Vector3(0, 135f, 0f));
+		}
+
+		public static Model CreateModelFromHeightmap(string filename) {
+			int[] data = new int[0];
+			int w = 0;
+			int h = 0;
+			using (FileStream stream = File.OpenRead(filename)) {
+				ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+				data = new int[image.Width * image.Height];
+				for (int i = 0; i < data.Length; i++) {
+					data[i] = image.Data[(i * 4) + 0];
+				}
+				w = image.Width;
+				h = image.Height;
+			};
+
+			List<float> vertices = new List<float>();
+			List<uint> indices = new List<uint>();
+
+			for (float y = 0; y < h; y++) {
+				for (float x = 0; x < w; x++) {
+					int i = ((int)y * h) + (int)x;
+					float z = ((float)data[i] / 255f) / 50;
+					float[] v = new float[] {
+						x / w, z, y / h, x/w, y/h, 0f,0f,0f,0f, 0f,0f,-1.0f
+					};
+
+					vertices.AddRange(v);
+				}
+			}
+
+
+			uint width = (uint)w;
+
+			for (uint y = 0; y < h - 1; y++) {
+				for (uint x = 0; x < w - 1; x++) {
+					uint x1 = x + (y * width);
+					uint x2 = x + ((y + 1) * width);
+
+					indices.AddRange(new uint[] {
+						x1, x1+1, x2,
+						x1+1, x2+1, x2
+					});
+				}
+			}
+
+			Model heightmap = new Model(vertices.ToArray(), indices.ToArray(), Texture.CreateTexture("assets/tiles_diffuse.jpg"));
+			return heightmap;
 		}
 
 		/// <summary> Creates a flat plane in the XY plane given a texture list.</summary>
