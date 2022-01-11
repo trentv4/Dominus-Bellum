@@ -4,24 +4,69 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 
 namespace DominusCore {
-	public class GamepackLoader {
-		public struct Level {
-			public string diffuse;
-			public string height;
-			public float height_scaling;
-			public int max_players;
-			public int[][] player_spawns;
-			public string map_name;
-			public string author;
-			public string date;
-			public Dictionary<string, string> key_values;
-		}
-
+	public class AssetLoader {
 		private static Regex _categoryRegex = new Regex(@"(.+[\[\]])", RegexOptions.Compiled);
 		private static Regex _keyRegex = new Regex(@"(.+)(?=\=)", RegexOptions.Compiled);
+		private static Dictionary<string, Gamepack> _cachedGamepacks = new Dictionary<string, Gamepack>();
+		private static Dictionary<string, Level> _cachedLevels = new Dictionary<string, Level>();
+
+		public static Gamepack LoadGamepack(string directory) {
+			if (_cachedGamepacks.ContainsKey(directory)) return _cachedGamepacks.GetValueOrDefault(directory);
+			Dictionary<string, string> d = ReadIni($"{directory}/gamepack.ini");
+			try {
+				string[] levelList = d.Get("levels.list").Split(",", StringSplitOptions.TrimEntries);
+				Gamepack gp = new Gamepack() {
+					Name = d.Get("authorship.name"),
+					Author = d.Get("authorship.author"),
+					Date = d.Get("authorship.date"),
+					Version = d.Get("authorship.version"),
+					InterfaceIngame = $"{directory}/interface/{d.Get("interface.in_game")}",
+					Levels = levelList,
+				};
+				_cachedGamepacks.Add(directory, gp);
+				return gp;
+			} catch (Exception e) {
+				Console.WriteLine(e.ToString());
+				Game.Exit();
+			}
+			return new Gamepack(); // Never reached
+		}
 
 		public static Level LoadLevel(string directory) {
-			string[] ini = new StreamReader($"{directory}/level.ini").ReadToEnd().Split(new string[] {
+			if (_cachedLevels.ContainsKey(directory)) return _cachedLevels.GetValueOrDefault(directory);
+			Dictionary<string, string> keyValues = ReadIni($"{directory}/level.ini");
+			try {
+				// Look through all key-value pairs and assign them to the appropriate Level data
+				int playerCount = int.Parse(keyValues.GetValueOrDefault("gameplay.max_players"));
+				int[][] spawns = new int[playerCount][];
+				for (int i = 1; i <= playerCount; i++) {
+					string[] coords = keyValues.GetValueOrDefault($"gameplay.spawn_{i}").Split(",");
+					spawns[i - 1] = new int[] {
+						int.Parse(coords[0]), int.Parse(coords[1])
+					};
+				}
+				Level l = new Level() {
+					DiffuseTexture = $"{directory}/{keyValues.GetValueOrDefault("geometry.diffuse")}",
+					HeightmapTexture = $"{directory}/{keyValues.GetValueOrDefault("geometry.height")}",
+					HeightScaling = float.Parse(keyValues.GetValueOrDefault("geometry.height_scaling")),
+					MaxPlayers = playerCount,
+					PlayerSpawns = spawns,
+					MapName = keyValues.GetValueOrDefault("authorship.name"),
+					Author = keyValues.GetValueOrDefault("authorship.author"),
+					Date = keyValues.GetValueOrDefault("authorship.date"),
+					KeyValues = keyValues,
+				};
+				_cachedLevels.Add(directory, l);
+				return l;
+			} catch (Exception e) {
+				Console.WriteLine(e.ToString());
+				Game.Exit();
+			}
+			return new Level(); // Never reached
+		}
+
+		public static Dictionary<string, string> ReadIni(string filename) {
+			string[] ini = new StreamReader(filename).ReadToEnd().Split(new string[] {
 				"\r", "\n", "\r\n"
 			}, StringSplitOptions.RemoveEmptyEntries);
 
@@ -41,40 +86,33 @@ namespace DominusCore {
 				// Identify if this is a key-value
 				if (_keyRegex.Match(current).Success) {
 					string[] keyValue = current.Split("=");
-					keyValues.Add($"{currentCategory}.{keyValue[0].Trim()}", $"{keyValue[1].Trim()}");
+					keyValues.Add($"{currentCategory}.{keyValue[0].Trim()}", keyValue[1].Trim());
 				}
 			}
 
-			try {
-				// Look through all key-value pairs and assign them to the appropriate Level data
-				int playerCount = int.Parse(keyValues.GetValueOrDefault("gameplay.max_players"));
-				int[][] spawns = new int[playerCount][];
-				for (int i = 1; i <= playerCount; i++) {
-					string[] coords = keyValues.GetValueOrDefault($"gameplay.spawn_{i}").Split(",");
-					spawns[i - 1] = new int[] {
-						int.Parse(coords[0]), int.Parse(coords[1])
-					};
-				}
-				return new Level() {
-					diffuse = $"{directory}/{keyValues.GetValueOrDefault("geometry.diffuse")}",
-					height = $"{directory}/{keyValues.GetValueOrDefault("geometry.height")}",
-					height_scaling = float.Parse(keyValues.GetValueOrDefault("geometry.height_scaling")),
-					max_players = playerCount,
-					player_spawns = spawns,
-					map_name = keyValues.GetValueOrDefault("authorship.name"),
-					author = keyValues.GetValueOrDefault("authorship.author"),
-					date = keyValues.GetValueOrDefault("authorship.date"),
-					key_values = keyValues,
-				};
-			} catch (Exception e) {
-				Console.WriteLine(e.ToString());
-				Game.Exit();
-			}
-			return new Level(); // Never reached
+			return keyValues;
 		}
 	}
 
-	public class ModelLoader {
+	public struct Level {
+		public string DiffuseTexture;
+		public string HeightmapTexture;
+		public float HeightScaling;
+		public int MaxPlayers;
+		public int[][] PlayerSpawns;
+		public string MapName;
+		public string Author;
+		public string Date;
+		public Dictionary<string, string> KeyValues;
+	}
 
+	public struct Gamepack {
+		public string Name;
+		public string Author;
+		public string Date;
+		public string Version;
+		public string InterfaceIngame;
+		public string[] Levels;
+		public Dictionary<string, string> KeyValues;
 	}
 }
