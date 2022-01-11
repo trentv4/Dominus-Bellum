@@ -65,7 +65,7 @@ void main() {
 		// Diffuse
 		result += max(dot(normal, lightDirection), 0.0) * albedo * ao * color;
 		// Specularity
-		result += gloss * color * pow(max(dot(normal, halfwayDirection), 0.0), 32);
+		//result += gloss * color * pow(max(dot(normal, halfwayDirection), 0.0), 32);
 		// Strength
 		result *= strength;
 		// Attenuation
@@ -77,5 +77,5 @@ void main() {
 
 		HDR += result;
 	}
-	FragColor = vec4(albedo, 1.0);
+	FragColor = vec4(HDR, 1.0);
 }

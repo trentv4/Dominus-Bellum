@@ -4,16 +4,6 @@ using System.Collections.Generic;
 
 namespace DominusCore {
 	public class DemoBuilder {
-
-		public static Drawable BuildDemoInterface_MainMenuTest() {
-			Drawable Root = new Drawable();
-			InterfaceImage img = new InterfaceImage(Texture.CreateTexture("assets/background.jpg"), Game.RenderPass.InterfaceForeground);
-			img.SetScale(0.25f);
-			img.SetPosition(new Vector3(0.5f, 0.0f, 0.0f));
-			Root.AddChild(img);
-			return Root;
-		}
-
 		public static Drawable BuildDemoInterface_IngameTest() {
 			Drawable Root = new Drawable();
 
@@ -30,12 +20,15 @@ namespace DominusCore {
 		}
 
 		public static Drawable BuildDemoScene_TextureTest() {
+			float strength = 2f;
+			var f = GamepackLoader.LoadLevel("assets/levels/DesertValley");
 			return new Drawable().AddChildren(new Drawable[] {
-				new Light(new Vector3(10f, 5f, 6f), Vector3.One, 3f),
-				new Light(new Vector3(20f, 5f, -10f), new Vector3(0.0f, 0.5f, 1.0f), 2f),
-				new Light(new Vector3(20f, 0f, 6f), new Vector3(1.0f, 0.0f, 0.0f), new Vector3(1, 0, -1), 5.5f),
-//				Model.CreateModelFromFile("assets/truck_grey.glb").SetPosition(new Vector3(20, 4, 3)),
-				Model.CreateModelFromHeightmap("assets/heightmap.png").SetPosition(new Vector3(0,0,0)).SetScale(30f),
+				new Light(new Vector3(-5,5,-5), Vector3.One, strength),
+				new Light(new Vector3(5,5,-5), Vector3.One, strength),
+				new Light(new Vector3(5,5,5), Vector3.One, strength),
+				new Light(new Vector3(-5,5,5), Vector3.One, strength),
+				//Model.CreateModelFromFile("assets/truck_grey.glb").SetPosition(new Vector3(20, 4, 3)),
+				Model.CreateModelFromHeightmap(f.height, f.diffuse).SetPosition(new Vector3(0,0,0)).SetScale(new Vector3(10f, f.height_scaling, 10f)),
 		});
 		}
 	}

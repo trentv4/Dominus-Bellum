@@ -380,11 +380,11 @@ namespace DominusCore {
 			return a.SetPosition(new Vector3(20, -4, 5)).SetScale(2.0f).SetRotation(new Vector3(0, 135f, 0f));
 		}
 
-		public static Model CreateModelFromHeightmap(string filename) {
+		public static Model CreateModelFromHeightmap(string height, string diffuse) {
 			int[] data = new int[0];
 			int w = 0;
 			int h = 0;
-			using (FileStream stream = File.OpenRead(filename)) {
+			using (FileStream stream = File.OpenRead(height)) {
 				ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 				data = new int[image.Width * image.Height];
 				for (int i = 0; i < data.Length; i++) {
@@ -401,8 +401,10 @@ namespace DominusCore {
 				for (float x = 0; x < w; x++) {
 					int i = ((int)y * h) + (int)x;
 					float z = ((float)data[i] / 255f) / 50;
+					float x2 = (x / w) - 0.5f;
+					float y2 = (y / h) - 0.5f;
 					float[] v = new float[] {
-						x / w, z, y / h, x/w, y/h, 0f,0f,0f,0f, 0f,0f,-1.0f
+						x2, z, y2, x/w, y/h, 0f,0f,0f,0f, 0f,1f,0.0f
 					};
 
 					vertices.AddRange(v);
@@ -424,7 +426,7 @@ namespace DominusCore {
 				}
 			}
 
-			Model heightmap = new Model(vertices.ToArray(), indices.ToArray(), Texture.CreateTexture("assets/tiles_diffuse.jpg"));
+			Model heightmap = new Model(vertices.ToArray(), indices.ToArray(), Texture.CreateTexture(diffuse));
 			return heightmap;
 		}
 

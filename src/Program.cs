@@ -33,9 +33,9 @@ namespace DominusCore {
 		// Camera
 		private static Matrix4 CameraPerspectiveMatrix;
 		private float CameraAngle = 90;
-		private static Vector3 CameraPosition = new Vector3(20.0f, 2.0f, -3.0f);
+		private static Vector3 CameraPosition = new Vector3(1.0f, 1.0f, -1.0f);
 		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
-		private static Vector3 CameraTarget = -Vector3.UnitZ;
+		private static Vector3 CameraTarget = new Vector3(0f, 0f, 0f);
 
 		// Debugging
 		private static DebugProc debugCallback = DebugCallback;
@@ -150,6 +150,7 @@ namespace DominusCore {
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
 		protected override void OnUpdateFrame(FrameEventArgs args) {
+			CameraTarget.Y = 0;
 			// All of the following are in the set [-1, 0, 1] which is used to calculate movement.
 			int ws = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.W)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.S));
 			int ad = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.A)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.D));
@@ -160,7 +161,7 @@ namespace DominusCore {
 							+ (Vector3.UnitY * sl) // Up-down
 							+ (ad * Vector3.Cross(Vector3.UnitY, CameraTarget))); // Strafing
 			CameraAngle -= qe * 1f; // qe * speed
-			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), CameraTarget.Y, (float)Math.Sin(CameraAngle * RCF));
+			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), -1, (float)Math.Sin(CameraAngle * RCF));
 		}
 
 		/// <summary> Handles resizing and keeping GLViewport correct</summary>
@@ -191,6 +192,10 @@ namespace DominusCore {
 		/// <summary> Assigns a debug label to a specified GL object - useful in debugging tools similar to debug groups. </summary>
 		private static void DebugLabel(ObjectLabelIdentifier type, int id, string label) {
 			GL.ObjectLabel(type, id, label.Length, label);
+		}
+
+		public static void Exit() {
+			System.Environment.Exit(0);
 		}
 
 		public static void Main(string[] args) {
