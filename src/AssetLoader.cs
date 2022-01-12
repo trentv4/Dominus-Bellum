@@ -79,14 +79,14 @@ namespace DominusCore {
 
 				// Identify if it is a category
 				if (_categoryRegex.Match(current).Success) {
-					currentCategory = current.Substring(1, current.Length - 2);
+					currentCategory = $"{current.Substring(1, current.Length - 2)}.";
 					continue;
 				}
 
 				// Identify if this is a key-value
 				if (_keyRegex.Match(current).Success) {
 					string[] keyValue = current.Split("=");
-					keyValues.Add($"{currentCategory}.{keyValue[0].Trim()}", keyValue[1].Trim());
+					keyValues.Add($"{currentCategory}{keyValue[0].Trim()}", keyValue[1].Trim());
 				}
 			}
 
