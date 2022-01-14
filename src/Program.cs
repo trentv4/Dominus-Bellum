@@ -32,8 +32,6 @@ namespace DominusCore {
 		private static Matrix4 CameraPerspectiveMatrix;
 
 		// Debugging
-		private static DebugProc debugCallback = DebugCallback;
-		private static GCHandle debugCallbackHandle;
 		private static Stopwatch frameTimer = new Stopwatch();
 		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring. </summary>
 		private double[] frameTimes = new double[30];
@@ -56,12 +54,11 @@ namespace DominusCore {
 			Console.WriteLine("OnRenderThreadStarted(): start");
 
 			// Misc GL flags and callbacks
-			debugCallbackHandle = GCHandle.Alloc(debugCallback);
-			GL.DebugMessageCallback(debugCallback, IntPtr.Zero);
+			GL.DebugMessageCallback(DebugCallback, IntPtr.Zero);
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
-			VSync = VSyncMode.On; // On seems to break? I don't think this is really matching VSync rates correctly.
+			VSync = VSyncMode.On;
 
 			InterfaceShader = new ShaderProgramInterface("src/shaders/InterfaceShader.glsl");
 			LightingShader = new ShaderProgramLighting("src/shaders/LightingShader.glsl");
@@ -77,7 +74,8 @@ namespace DominusCore {
 
 			FontAtlas.Load("calibri", "assets/fonts/calibri.png", "assets/fonts/calibri.json");
 
-			Model.CreateDrawableCube(Texture.CreateTexture("assets/missing.png"));
+			// Necessary to have this to prevent attribs from crashing due to unbound VBO
+			//GL.BindBuffer(BufferTarget.ArrayBuffer, GL.GenBuffer());
 
 			InterfaceShader.SetVertexAttribPointers(new[] { 2, 2 });
 			GeometryShader.SetVertexAttribPointers(new[] { 3, 2, 4, 3 });
@@ -145,7 +143,6 @@ namespace DominusCore {
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
 		protected override void OnUpdateFrame(FrameEventArgs args) {
 			Program.Logic.OnUpdateFrame(args.Time);
-			Program.Logic.UpdateGameData();
 		}
 
 		/// <summary> Handles logic thread initialization. <br/> THREAD: Logic </summary>
@@ -182,10 +179,6 @@ namespace DominusCore {
 		private static void DebugLabel(ObjectLabelIdentifier type, int id, string label) {
 			GL.ObjectLabel(type, id, label.Length, label);
 		}
-
-		public static void Exit() {
-			System.Environment.Exit(0);
-		}
 	}
 
 	public class GameData {
@@ -211,24 +204,6 @@ namespace DominusCore {
 				GameData d = Data;
 				Data = new GameData();
 				return d;
-			}
-		}
-
-		public void UpdateGameData() {
-			lock (Data) {
-				// This will take a copy of the current unprocessed queue, check if it's been fetched, and clear it if it has.
-				// Then, it will check the current logic thread and see what new events have been dispatched, and add them to
-				// the overall list. Then, it clears the logic threads new events. This prevents duplication of events. 
-				Data.EventQueue.AddRange(EventQueue);
-				EventQueue.Clear();
-
-				Data = new GameData() {
-					CameraPosition = this.CameraPosition,
-					CameraTarget = this.CameraTarget,
-					Gamepack = this.CurrentGamepack,
-					Level = this.CurrentLevel,
-					EventQueue = Data.EventQueue,
-				};
 			}
 		}
 
@@ -258,6 +233,20 @@ namespace DominusCore {
 							+ (ad * Vector3.Cross(Vector3.UnitY, CameraTarget))); // Strafing
 			CameraAngle -= qe * 1f; // qe * speed
 			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * Renderer.RCF), -1, (float)Math.Sin(CameraAngle * Renderer.RCF));
+
+			// Update the stored GameData
+			lock (Data) {
+				Data.EventQueue.AddRange(EventQueue);
+				EventQueue.Clear();
+
+				Data = new GameData() {
+					CameraPosition = this.CameraPosition,
+					CameraTarget = this.CameraTarget,
+					Gamepack = this.CurrentGamepack,
+					Level = this.CurrentLevel,
+					EventQueue = Data.EventQueue,
+				};
+			}
 		}
 	}
 
@@ -282,5 +271,23 @@ namespace DominusCore {
 				g.Run();
 			}
 		}
+
+		public static void Crash(string error) {
+			Crash(new Exception(error));
+		}
+
+		public static void Crash(Exception e) {
+			Console.WriteLine(e.ToString());
+			Exit(-1);
+		}
+
+		public static void Exit() {
+			Exit(0);
+		}
+
+		public static void Exit(int error) {
+			System.Environment.Exit(error);
+		}
+
 	}
 }

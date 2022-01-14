@@ -28,8 +28,7 @@ namespace DominusCore {
 				_cachedGamepacks.Add(directory, gp);
 				return gp;
 			} catch (Exception e) {
-				Console.WriteLine(e.ToString());
-				Renderer.Exit();
+				Program.Crash(e);
 			}
 			return new Gamepack(); // Never reached
 		}
@@ -61,8 +60,7 @@ namespace DominusCore {
 				_cachedLevels.Add(directory, l);
 				return l;
 			} catch (Exception e) {
-				Console.WriteLine(e.ToString());
-				Renderer.Exit();
+				Program.Crash(e);
 			}
 			return new Level(); // Never reached
 		}
