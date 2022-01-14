@@ -10,7 +10,7 @@ namespace DominusCore {
 	/// <summary> Rendering node object, where anything drawn in a scene is a Drawable. This can be lights, models, fx, etc. </summary>
 	public class Drawable {
 		private List<Drawable> children = new List<Drawable>();
-		private Dictionary<string, Drawable> taggedChildren;
+		public Dictionary<string, Drawable> TaggedChildren;
 		/// <summary> Determines if the element and its children will be drawn. </summary>
 		public bool isEnabled = true;
 
@@ -36,9 +36,9 @@ namespace DominusCore {
 		}
 
 		public Drawable AddChild(Drawable child, string tag) {
-			if (taggedChildren == null)
-				taggedChildren = new Dictionary<string, Drawable>();
-			taggedChildren.Add(tag, child);
+			if (TaggedChildren == null)
+				TaggedChildren = new Dictionary<string, Drawable>();
+			TaggedChildren[tag] = child;
 			return AddChild(child);
 		}
 
@@ -48,11 +48,10 @@ namespace DominusCore {
 		}
 
 		public Drawable GetTaggedChild(string tag) {
-			if (taggedChildren != null && taggedChildren.ContainsKey(tag)) {
-				return taggedChildren.GetValueOrDefault(tag);
+			if (TaggedChildren != null && TaggedChildren.ContainsKey(tag)) {
+				return TaggedChildren.GetValueOrDefault(tag);
 			} else {
 				Console.WriteLine($"Unable to find tagged child of {tag}");
-				Renderer.Exit();
 				return new Drawable();
 			}
 		}

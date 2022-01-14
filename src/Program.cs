@@ -26,7 +26,7 @@ namespace DominusCore {
 		public static Framebuffer DefaultFramebuffer;
 
 		// Content
-		private Drawable Scene;
+		private Scene Scene = new Scene();
 
 		// Camera
 		private static Matrix4 CameraPerspectiveMatrix;
@@ -90,8 +90,7 @@ namespace DominusCore {
 			frameTimer.Restart();
 
 			GameData d = Program.Logic.GetGameData();
-			Drawable SceneRoot = DemoBuilder.BuildGameplayWorld(d);
-			Drawable InterfaceRoot = DemoBuilder.BuildGameplayInterface(d);
+			Scene.Update(d);
 
 			Vector2 ProjectMatrixNearFar = new Vector2(0.01f, 1000000f);
 			Matrix4 Perspective3D = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)Size.X / (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
@@ -103,7 +102,7 @@ namespace DominusCore {
 			Matrix4 MatrixView = Matrix4.LookAt(d.CameraPosition, d.CameraPosition + d.CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref Perspective3D);
-			int drawcalls = SceneRoot.Draw();
+			int drawcalls = Scene.Geometry.Draw();
 			EndPass();
 
 			BeginPass("Lighting");
@@ -113,7 +112,7 @@ namespace DominusCore {
 			FramebufferGeometry.GetAttachment(1).Bind(1);
 			FramebufferGeometry.GetAttachment(2).Bind(2);
 			GL.Uniform3(LightingShader.UniformCameraPosition_ID, d.CameraPosition.X, d.CameraPosition.Y, d.CameraPosition.Z);
-			drawcalls += 1 + SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms for each light
+			drawcalls += 1 + Scene.Geometry.Draw(); // Doesn't actually draw, just sets uniforms for each light
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
 			EndPass();
@@ -123,11 +122,11 @@ namespace DominusCore {
 			DefaultFramebuffer.BlitFrom(FramebufferGeometry, ClearBufferMask.DepthBufferBit);
 			InterfaceShader.Use(RenderPass.InterfaceBackground);
 			GL.UniformMatrix4(InterfaceShader.UniformPerspective_ID, true, ref Perspective2D);
-			drawcalls += InterfaceRoot.Draw();
+			drawcalls += Scene.Interface.Draw();
 			InterfaceShader.Use(RenderPass.InterfaceForeground);
-			drawcalls += InterfaceRoot.Draw();
+			drawcalls += Scene.Interface.Draw();
 			InterfaceShader.Use(RenderPass.InterfaceText);
-			drawcalls += InterfaceRoot.Draw();
+			drawcalls += Scene.Interface.Draw();
 			EndPass();
 
 			// Frame done
@@ -206,12 +205,12 @@ namespace DominusCore {
 		private Gamepack CurrentGamepack;
 		private Level CurrentLevel;
 		private List<string> EventQueue = new List<string>();
-		private bool IsEventQueueClearable = false;
 
 		public GameData GetGameData() {
 			lock (Data) {
-				IsEventQueueClearable = true;
-				return Data;
+				GameData d = Data;
+				Data = new GameData();
+				return d;
 			}
 		}
 
@@ -220,9 +219,7 @@ namespace DominusCore {
 				// This will take a copy of the current unprocessed queue, check if it's been fetched, and clear it if it has.
 				// Then, it will check the current logic thread and see what new events have been dispatched, and add them to
 				// the overall list. Then, it clears the logic threads new events. This prevents duplication of events. 
-				List<string> currentQueue = Data.EventQueue;
-				if (IsEventQueueClearable) currentQueue.Clear();
-				currentQueue.AddRange(EventQueue);
+				Data.EventQueue.AddRange(EventQueue);
 				EventQueue.Clear();
 
 				Data = new GameData() {
@@ -230,7 +227,7 @@ namespace DominusCore {
 					CameraTarget = this.CameraTarget,
 					Gamepack = this.CurrentGamepack,
 					Level = this.CurrentLevel,
-					EventQueue = currentQueue
+					EventQueue = Data.EventQueue,
 				};
 			}
 		}
@@ -238,6 +235,8 @@ namespace DominusCore {
 		public void OnLogicThreadStarted() {
 			CurrentGamepack = AssetLoader.LoadGamepack("assets/gamepacks/debug");
 			CurrentLevel = AssetLoader.LoadLevel($"{CurrentGamepack.Directory}/levels/{CurrentGamepack.Levels[0]}");
+			EventQueue.Add("RegenerateLevel");
+			EventQueue.Add("UpdateInterface");
 		}
 
 		public void OnUpdateFrame(double secondsElapsed) {
@@ -248,6 +247,11 @@ namespace DominusCore {
 			int ad = Convert.ToInt32(f.IsKeyDown(Keys.A)) - Convert.ToInt32(f.IsKeyDown(Keys.D));
 			int qe = Convert.ToInt32(f.IsKeyDown(Keys.Q)) - Convert.ToInt32(f.IsKeyDown(Keys.E));
 			int sl = Convert.ToInt32(f.IsKeyDown(Keys.Space)) - Convert.ToInt32(f.IsKeyDown(Keys.LeftShift));
+
+			if (f.IsKeyDown(Keys.U)) {
+				EventQueue.Add("Test event");
+			}
+
 			CameraPosition += (1f * (float)secondsElapsed) // speed
 							* ((CameraTarget * ws) // Forward-back
 							+ (Vector3.UnitY * sl) // Up-down
