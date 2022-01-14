@@ -41,11 +41,11 @@ namespace DominusCore {
 			SetUniforms();
 		}
 
-		public virtual ShaderProgram Use(Game.RenderPass pass) {
+		public virtual ShaderProgram Use(Renderer.RenderPass pass) {
 			TryLoadShaders();
 			GL.UseProgram(ShaderProgram_ID);
 			GL.BindVertexArray(_vertexArrayObject_ID);
-			Game.CurrentPass = pass;
+			Renderer.CurrentPass = pass;
 			return this;
 		}
 
@@ -53,7 +53,7 @@ namespace DominusCore {
 		/// creating at least one VBO in this format. Provide the attribs as a series of ints specifying attrib size.
 		/// For example, [vec3, vec4, vec3, vec2] would be int[] { 3, 4, 3, 2 }. </summary>
 		public virtual ShaderProgram SetVertexAttribPointers(int[] attribs) {
-			Use(Game.CurrentPass);
+			Use(Renderer.CurrentPass);
 			int stride = attribs.Sum() * sizeof(float);
 			int runningTotal = 0;
 			for (int i = 0; i < attribs.Length; i++) {
@@ -128,16 +128,16 @@ namespace DominusCore {
 		}
 
 		/// <summary> Sets OpenGL to use this shader program, and keeps track of the current shader in Game. </summary>
-		public override ShaderProgramInterface Use(Game.RenderPass pass) {
+		public override ShaderProgramInterface Use(Renderer.RenderPass pass) {
 			base.Use(pass);
 
-			if (pass == Game.RenderPass.InterfaceBackground) {
+			if (pass == Renderer.RenderPass.InterfaceBackground) {
 				GL.Uniform1(UniformDepth_ID, 0.999999f);
 				GL.Uniform1(UniformIsFont_ID, 0);
-			} else if (pass == Game.RenderPass.InterfaceForeground) {
+			} else if (pass == Renderer.RenderPass.InterfaceForeground) {
 				GL.Uniform1(UniformDepth_ID, 0.2f);
 				GL.Uniform1(UniformIsFont_ID, 0);
-			} else if (pass == Game.RenderPass.InterfaceText) {
+			} else if (pass == Renderer.RenderPass.InterfaceText) {
 				GL.Uniform1(UniformDepth_ID, 0.1f);
 				GL.Uniform1(UniformIsFont_ID, 1);
 			}

@@ -7,12 +7,11 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace DominusCore {
-	public class Game : GameWindow {
-		public Game INSTANCE;
+	public class Renderer : GameWindow {
 		// Constants
-		public static readonly Vector2i WindowSize = new Vector2i(1600, 900);
 		/// <summary> Radian Conversion Factor (used for degree-radian conversions). Equal to pi/180. </summary>
 		internal const float RCF = 0.017453293f;
 
@@ -27,15 +26,10 @@ namespace DominusCore {
 		public static Framebuffer DefaultFramebuffer;
 
 		// Content
-		private Drawable SceneRoot;
-		private Drawable InterfaceRoot;
+		private Drawable Scene;
 
 		// Camera
 		private static Matrix4 CameraPerspectiveMatrix;
-		private float CameraAngle = 90;
-		private static Vector3 CameraPosition = new Vector3(1.0f, 1.0f, -1.0f);
-		/// <summary> Position relative to the camera that the camera is facing. Managed in OnUpdateFrame(). </summary>
-		private static Vector3 CameraTarget = new Vector3(0f, 0f, 0f);
 
 		// Debugging
 		private static DebugProc debugCallback = DebugCallback;
@@ -45,7 +39,7 @@ namespace DominusCore {
 		private double[] frameTimes = new double[30];
 		private int _debugGroupTracker = 0;
 
-		public Game(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
+		public Renderer(GameWindowSettings gws, NativeWindowSettings nws) : base(gws, nws) { }
 
 		/// <summary> The types of render passes that can be done in the render loop, used to control what gets run in Drawable.DrawSelf(). </summary>
 		public enum RenderPass {
@@ -67,7 +61,7 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
-			VSync = VSyncMode.Off; // On seems to break? I don't think this is really matching VSync rates correctly.
+			VSync = VSyncMode.On; // On seems to break? I don't think this is really matching VSync rates correctly.
 
 			InterfaceShader = new ShaderProgramInterface("src/shaders/InterfaceShader.glsl");
 			LightingShader = new ShaderProgramLighting("src/shaders/LightingShader.glsl");
@@ -83,9 +77,7 @@ namespace DominusCore {
 
 			FontAtlas.Load("calibri", "assets/fonts/calibri.png", "assets/fonts/calibri.json");
 
-			// Create Drawable objects for each layer
-			SceneRoot = DemoBuilder.BuildDemoScene_TextureTest();
-			InterfaceRoot = DemoBuilder.BuildDemoInterface_IngameTest();
+			Model.CreateDrawableCube(Texture.CreateTexture("assets/missing.png"));
 
 			InterfaceShader.SetVertexAttribPointers(new[] { 2, 2 });
 			GeometryShader.SetVertexAttribPointers(new[] { 3, 2, 4, 3 });
@@ -95,9 +87,11 @@ namespace DominusCore {
 
 		/// <summary> Core render loop. <br/> THREAD: OpenGL </summary>
 		protected override void OnRenderFrame(FrameEventArgs args) {
-			frameTimer.Reset();
-			long frameStart = frameTimer.ElapsedTicks;
-			frameTimer.Start();
+			frameTimer.Restart();
+
+			GameData d = Program.Logic.GetGameData();
+			Drawable SceneRoot = DemoBuilder.BuildGameplayWorld(d);
+			Drawable InterfaceRoot = DemoBuilder.BuildGameplayInterface(d);
 
 			Vector2 ProjectMatrixNearFar = new Vector2(0.01f, 1000000f);
 			Matrix4 Perspective3D = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)Size.X / (float)Size.Y, ProjectMatrixNearFar.X, ProjectMatrixNearFar.Y);
@@ -106,7 +100,7 @@ namespace DominusCore {
 			BeginPass("G-Buffer");
 			FramebufferGeometry.Use().Reset();
 			GeometryShader.Use(RenderPass.Geometry);
-			Matrix4 MatrixView = Matrix4.LookAt(CameraPosition, CameraPosition + CameraTarget, Vector3.UnitY);
+			Matrix4 MatrixView = Matrix4.LookAt(d.CameraPosition, d.CameraPosition + d.CameraTarget, Vector3.UnitY);
 			GL.UniformMatrix4(GeometryShader.UniformView_ID, true, ref MatrixView);
 			GL.UniformMatrix4(GeometryShader.UniformPerspective_ID, true, ref Perspective3D);
 			int drawcalls = SceneRoot.Draw();
@@ -118,7 +112,7 @@ namespace DominusCore {
 			FramebufferGeometry.GetAttachment(0).Bind(0);
 			FramebufferGeometry.GetAttachment(1).Bind(1);
 			FramebufferGeometry.GetAttachment(2).Bind(2);
-			GL.Uniform3(LightingShader.UniformCameraPosition_ID, CameraPosition.X, CameraPosition.Y, CameraPosition.Z);
+			GL.Uniform3(LightingShader.UniformCameraPosition_ID, d.CameraPosition.X, d.CameraPosition.Y, d.CameraPosition.Z);
 			drawcalls += 1 + SceneRoot.Draw(); // Doesn't actually draw, just sets uniforms for each light
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 3);
 			LightingShader.ResetLights();
@@ -142,32 +136,28 @@ namespace DominusCore {
 
 			// How long did the frame take?
 			Array.Copy(frameTimes, 1, frameTimes, 0, frameTimes.Length - 1);
-			frameTimes[frameTimes.Length - 1] = 1000f * (frameTimer.ElapsedTicks - frameStart) / Stopwatch.Frequency;
+			frameTimes[frameTimes.Length - 1] = 1000f * frameTimer.ElapsedTicks / Stopwatch.Frequency;
 			double time = frameTimes.Sum() / frameTimes.Length;
-			this.Title = $"Display - FPS: {1000 / time,-1:F1} Drawcalls: {drawcalls} Frametime: {time,-4:F2}ms, Budget: {time / 10/*ms*/,-2:P2} (target: 10ms)";
+			double goal = 1000 / 60;
+			this.Title = $"Display - FPS: {1000 / time,-1:F1} Drawcalls: {drawcalls} Frametime: {time,-4:F2}ms, Budget: {time / goal,-2:P2} (target: {goal}ms)";
 			_debugGroupTracker = 0;
 		}
 
 		/// <summary> Handles all logical game events and input. <br/> THREAD: Logic </summary>
 		protected override void OnUpdateFrame(FrameEventArgs args) {
-			CameraTarget.Y = 0;
-			// All of the following are in the set [-1, 0, 1] which is used to calculate movement.
-			int ws = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.W)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.S));
-			int ad = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.A)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.D));
-			int qe = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.Q)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.E));
-			int sl = Convert.ToInt32(KeyboardState.IsKeyDown(Keys.Space)) - Convert.ToInt32(KeyboardState.IsKeyDown(Keys.LeftShift));
-			CameraPosition += 0.05f // speed
-							* ((CameraTarget * ws) // Forward-back
-							+ (Vector3.UnitY * sl) // Up-down
-							+ (ad * Vector3.Cross(Vector3.UnitY, CameraTarget))); // Strafing
-			CameraAngle -= qe * 1f; // qe * speed
-			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * RCF), -1, (float)Math.Sin(CameraAngle * RCF));
+			Program.Logic.OnUpdateFrame(args.Time);
+			Program.Logic.UpdateGameData();
+		}
+
+		/// <summary> Handles logic thread initialization. <br/> THREAD: Logic </summary>
+		protected override void OnLoad() {
+			Program.Logic.OnLogicThreadStarted();
 		}
 
 		/// <summary> Handles resizing and keeping GLViewport correct</summary>
 		protected override void OnResize(ResizeEventArgs e) {
-			GL.Viewport(0, 0, WindowSize.X, WindowSize.Y);
-			CameraPerspectiveMatrix = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)WindowSize.X / (float)WindowSize.Y, 0.001f, 100.0f);
+			GL.Viewport(0, 0, Size.X, Size.Y);
+			CameraPerspectiveMatrix = Matrix4.CreatePerspectiveFieldOfView(90f * RCF, (float)Size.X / (float)Size.Y, 0.001f, 100.0f);
 		}
 
 		/// <summary> Handles all debug callbacks from OpenGL and throws exceptions if unhandled. </summary>
@@ -197,20 +187,94 @@ namespace DominusCore {
 		public static void Exit() {
 			System.Environment.Exit(0);
 		}
+	}
+
+	public class GameData {
+		public Vector3 CameraPosition;
+		public Vector3 CameraTarget;
+		public Gamepack Gamepack;
+		public Level Level;
+		public List<string> EventQueue = new List<string>();
+	}
+
+	public class GameLogic {
+		private GameData Data = new GameData();
+
+		private Vector3 CameraPosition = new Vector3(0, 5, 0);
+		private Vector3 CameraTarget = new Vector3(0, 0, 0);
+		private float CameraAngle = 0f;
+		private Gamepack CurrentGamepack;
+		private Level CurrentLevel;
+		private List<string> EventQueue = new List<string>();
+		private bool IsEventQueueClearable = false;
+
+		public GameData GetGameData() {
+			lock (Data) {
+				IsEventQueueClearable = true;
+				return Data;
+			}
+		}
+
+		public void UpdateGameData() {
+			lock (Data) {
+				// This will take a copy of the current unprocessed queue, check if it's been fetched, and clear it if it has.
+				// Then, it will check the current logic thread and see what new events have been dispatched, and add them to
+				// the overall list. Then, it clears the logic threads new events. This prevents duplication of events. 
+				List<string> currentQueue = Data.EventQueue;
+				if (IsEventQueueClearable) currentQueue.Clear();
+				currentQueue.AddRange(EventQueue);
+				EventQueue.Clear();
+
+				Data = new GameData() {
+					CameraPosition = this.CameraPosition,
+					CameraTarget = this.CameraTarget,
+					Gamepack = this.CurrentGamepack,
+					Level = this.CurrentLevel,
+					EventQueue = currentQueue
+				};
+			}
+		}
+
+		public void OnLogicThreadStarted() {
+			CurrentGamepack = AssetLoader.LoadGamepack("assets/gamepacks/debug");
+			CurrentLevel = AssetLoader.LoadLevel($"{CurrentGamepack.Directory}/levels/{CurrentGamepack.Levels[0]}");
+		}
+
+		public void OnUpdateFrame(double secondsElapsed) {
+			CameraTarget.Y = 0;
+			var f = Program.Renderer.KeyboardState;
+			// All of the following are in the set [-1, 0, 1] which is used to calculate movement.
+			int ws = Convert.ToInt32(f.IsKeyDown(Keys.W)) - Convert.ToInt32(f.IsKeyDown(Keys.S));
+			int ad = Convert.ToInt32(f.IsKeyDown(Keys.A)) - Convert.ToInt32(f.IsKeyDown(Keys.D));
+			int qe = Convert.ToInt32(f.IsKeyDown(Keys.Q)) - Convert.ToInt32(f.IsKeyDown(Keys.E));
+			int sl = Convert.ToInt32(f.IsKeyDown(Keys.Space)) - Convert.ToInt32(f.IsKeyDown(Keys.LeftShift));
+			CameraPosition += (1f * (float)secondsElapsed) // speed
+							* ((CameraTarget * ws) // Forward-back
+							+ (Vector3.UnitY * sl) // Up-down
+							+ (ad * Vector3.Cross(Vector3.UnitY, CameraTarget))); // Strafing
+			CameraAngle -= qe * 1f; // qe * speed
+			CameraTarget = new Vector3((float)Math.Cos(CameraAngle * Renderer.RCF), -1, (float)Math.Sin(CameraAngle * Renderer.RCF));
+		}
+	}
+
+	public class Program {
+		public static Renderer Renderer;
+		public static GameLogic Logic;
 
 		public static void Main(string[] args) {
 			Console.WriteLine("Initializing");
 			Assimp.Unmanaged.AssimpLibrary.Instance.LoadLibrary();
 
-			using (Game g = new Game(new GameWindowSettings() {
+			using (Renderer g = new Renderer(new GameWindowSettings() {
 				IsMultiThreaded = true,
 				UpdateFrequency = 60
 			}, new NativeWindowSettings() {
-				Size = WindowSize,
+				Size = new Vector2i(1600, 900),
 				Title = "Display",
 				WindowBorder = WindowBorder.Fixed
 			})) {
-				g.INSTANCE = g;
+				Renderer = g;
+				Logic = new GameLogic();
 				g.Run();
 			}
 		}

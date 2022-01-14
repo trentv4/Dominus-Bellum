@@ -30,8 +30,8 @@ namespace DominusCore {
 		public Framebuffer AddDepthBuffer(PixelInternalFormat depthComponent) {
 			Depth = new Texture(GL.GenTexture());
 			GL.BindTexture(TextureTarget.Texture2D, Depth.TextureID);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, depthComponent, Game.WindowSize.X,
-						Game.WindowSize.Y, 0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, depthComponent, Program.Renderer.Size.X,
+						Program.Renderer.Size.Y, 0, PixelFormat.DepthComponent, PixelType.UnsignedByte, new byte[0]);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
 			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
@@ -66,8 +66,8 @@ namespace DominusCore {
 			int attachment = _bufferTextures.Count;
 			Texture buffer = new Texture(GL.GenTexture());
 			GL.BindTexture(TextureTarget.Texture2D, buffer.TextureID);
-			GL.TexImage2D(TextureTarget.Texture2D, 0, internalFormat, Game.WindowSize.X,
-						Game.WindowSize.Y, 0, externalFormat, PixelType.UnsignedByte, new byte[0]);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, internalFormat, Program.Renderer.Size.X,
+						Program.Renderer.Size.Y, 0, externalFormat, PixelType.UnsignedByte, new byte[0]);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
 			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0 + attachment,
@@ -91,7 +91,7 @@ namespace DominusCore {
 		public Framebuffer BlitFrom(Framebuffer from, ClearBufferMask mask) {
 			GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, from.FramebufferID);
 			GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, FramebufferID);
-			GL.BlitFramebuffer(0, 0, Game.WindowSize.X, Game.WindowSize.Y, 0, 0, Game.WindowSize.X, Game.WindowSize.Y,
+			GL.BlitFramebuffer(0, 0, Program.Renderer.Size.X, Program.Renderer.Size.Y, 0, 0, Program.Renderer.Size.X, Program.Renderer.Size.Y,
 								mask, BlitFramebufferFilter.Nearest);
 			return this;
 
