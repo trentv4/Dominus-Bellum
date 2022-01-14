@@ -21,13 +21,15 @@ namespace DominusCore {
 					Date = d.Get("authorship.date"),
 					Version = d.Get("authorship.version"),
 					InterfaceIngame = $"{directory}/interface/{d.Get("interface.in_game")}",
+					Directory = directory,
 					Levels = levelList,
+					KeyValues = d,
 				};
 				_cachedGamepacks.Add(directory, gp);
 				return gp;
 			} catch (Exception e) {
 				Console.WriteLine(e.ToString());
-				Game.Exit();
+				Renderer.Exit();
 			}
 			return new Gamepack(); // Never reached
 		}
@@ -60,7 +62,7 @@ namespace DominusCore {
 				return l;
 			} catch (Exception e) {
 				Console.WriteLine(e.ToString());
-				Game.Exit();
+				Renderer.Exit();
 			}
 			return new Level(); // Never reached
 		}
@@ -113,6 +115,7 @@ namespace DominusCore {
 		public string Version;
 		public string InterfaceIngame;
 		public string[] Levels;
+		public string Directory;
 		public Dictionary<string, string> KeyValues;
 	}
 }
