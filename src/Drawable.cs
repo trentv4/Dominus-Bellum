@@ -9,7 +9,8 @@ using StbImageSharp;
 namespace DominusCore {
 	/// <summary> Rendering node object, where anything drawn in a scene is a Drawable. This can be lights, models, fx, etc. </summary>
 	public class Drawable {
-		public List<Drawable> children = new List<Drawable>();
+		private List<Drawable> children = new List<Drawable>();
+		private Dictionary<string, Drawable> taggedChildren;
 		/// <summary> Determines if the element and its children will be drawn. </summary>
 		public bool isEnabled = true;
 
@@ -34,9 +35,26 @@ namespace DominusCore {
 			return this;
 		}
 
+		public Drawable AddChild(Drawable child, string tag) {
+			if (taggedChildren == null)
+				taggedChildren = new Dictionary<string, Drawable>();
+			taggedChildren.Add(tag, child);
+			return AddChild(child);
+		}
+
 		public Drawable AddChildren(params Drawable[] children) {
 			this.children.AddRange(children);
 			return this;
+		}
+
+		public Drawable GetTaggedChild(string tag) {
+			if (taggedChildren != null && taggedChildren.ContainsKey(tag)) {
+				return taggedChildren.GetValueOrDefault(tag);
+			} else {
+				Console.WriteLine($"Unable to find tagged child of {tag}");
+				Renderer.Exit();
+				return new Drawable();
+			}
 		}
 
 		public Drawable SetEnabled(bool state) {
@@ -49,7 +67,7 @@ namespace DominusCore {
 	/// <br/> Provides methods to set position, scale, rotation, and to dispose. </summary>
 	internal class InterfaceImage : Drawable, IDisposable {
 		private readonly Texture texture;
-		private readonly Game.RenderPass DrawPass;
+		private readonly Renderer.RenderPass DrawPass;
 
 		public readonly int VertexBufferObject_ID;
 		public Vector3 Scale { get; private set; } = Vector3.One;
@@ -62,7 +80,7 @@ namespace DominusCore {
 		/// but the vertex data will remain static. Usage is hinted as StaticDraw. Both index and vertex data is
 		/// discarded immediately after being sent to the GL context.
 		/// <br/> !! Warning !! This is not a logical unit and exists on the render thread only! </summary>
-		public InterfaceImage(Texture texture, Game.RenderPass passToDrawIn) {
+		public InterfaceImage(Texture texture, Renderer.RenderPass passToDrawIn) {
 			float[] vertexData = new float[]{
 				-1.0f, -1.0f, 0.0f, 0.0f,
 				-1.0f,  1.0f, 0.0f, 1.0f,
@@ -84,12 +102,12 @@ namespace DominusCore {
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentPass != DrawPass) return false;
+			if (Renderer.CurrentPass != DrawPass) return false;
 
 			GL.BindVertexBuffer(0, VertexBufferObject_ID, (IntPtr)(0 * sizeof(float)), 4 * sizeof(float));
 			GL.BindVertexBuffer(1, VertexBufferObject_ID, (IntPtr)(2 * sizeof(float)), 4 * sizeof(float));
 			Matrix4 tempModelMatrix = ModelMatrix;
-			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref tempModelMatrix);
+			GL.UniformMatrix4(Renderer.InterfaceShader.UniformModel_ID, true, ref tempModelMatrix);
 			texture.Bind();
 			GL.DrawArrays(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, 0, 6);
 			return true;
@@ -104,9 +122,9 @@ namespace DominusCore {
 		/// <summary> Regenerates the model matrix after an update to scale, translation, or rotation. </summary>
 		private void UpdateModelMatrix() {
 			Matrix4 m = Matrix4.CreateScale(Scale);
-			m *= Matrix4.CreateRotationX(Rotation.X * Game.RCF);
-			m *= Matrix4.CreateRotationY(Rotation.Y * Game.RCF);
-			m *= Matrix4.CreateRotationZ(Rotation.Z * Game.RCF);
+			m *= Matrix4.CreateRotationX(Rotation.X * Renderer.RCF);
+			m *= Matrix4.CreateRotationY(Rotation.Y * Renderer.RCF);
+			m *= Matrix4.CreateRotationZ(Rotation.Z * Renderer.RCF);
 			m *= Matrix4.CreateTranslation(Position);
 			ModelMatrix = m;
 		}
@@ -202,12 +220,12 @@ namespace DominusCore {
 
 		/// <summary> Draws the font on the GPU. This is done with the Interface shader, but the use of the font uniform causes this to be a text box. </summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentPass != Game.RenderPass.InterfaceText) return false;
+			if (Renderer.CurrentPass != Renderer.RenderPass.InterfaceText) return false;
 
 			Matrix4 modelMatrix = Matrix4.Identity;
 			modelMatrix *= Matrix4.CreateScale(new Vector3(Scale.X, Scale.Y, 1f));
 			modelMatrix *= Matrix4.CreateTranslation(new Vector3(Position.X, Position.Y, 0f));
-			GL.UniformMatrix4(Game.InterfaceShader.UniformModel_ID, true, ref modelMatrix);
+			GL.UniformMatrix4(Renderer.InterfaceShader.UniformModel_ID, true, ref modelMatrix);
 
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferArrayID);
 			GL.BindVertexBuffer(0, _vertexBufferObjectID, (IntPtr)(0 * sizeof(float)), 4 * sizeof(float));
@@ -279,9 +297,9 @@ namespace DominusCore {
 		/// <summary> Binds the index and vertex buffers, binds textures, then draws. Does not recurse.
 		/// <br/> !! Warning !! This may be performance heavy with large amounts of different models! </summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentPass != Game.RenderPass.Geometry) return false;
+			if (Renderer.CurrentPass != Renderer.RenderPass.Geometry) return false;
 			Matrix4 tempModelMatrix = ModelMatrix;
-			GL.UniformMatrix4(Game.GeometryShader.UniformModel_ID, true, ref tempModelMatrix);
+			GL.UniformMatrix4(Renderer.GeometryShader.UniformModel_ID, true, ref tempModelMatrix);
 
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferArray_ID);
 			int stride = 12 * sizeof(float);
@@ -290,7 +308,7 @@ namespace DominusCore {
 			GL.BindVertexBuffer(2, VertexBufferObject_ID, (IntPtr)(5 * sizeof(float)), stride);
 			GL.BindVertexBuffer(3, VertexBufferObject_ID, (IntPtr)(9 * sizeof(float)), stride);
 			for (int i = 0; i < textures.Length; i++) {
-				GL.Uniform1(Game.GeometryShader.TextureUniforms[i], i);
+				GL.Uniform1(Renderer.GeometryShader.TextureUniforms[i], i);
 				textures[i].Bind(i);
 			}
 			GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, IndexLength, DrawElementsType.UnsignedInt, 0);
@@ -307,9 +325,9 @@ namespace DominusCore {
 		/// <summary> Regenerates the model matrix after an update to scale, translation, or rotation. </summary>
 		private void UpdateModelMatrix() {
 			Matrix4 m = Matrix4.CreateScale(Scale);
-			m *= Matrix4.CreateRotationX(Rotation.X * Game.RCF);
-			m *= Matrix4.CreateRotationY(Rotation.Y * Game.RCF);
-			m *= Matrix4.CreateRotationZ(Rotation.Z * Game.RCF);
+			m *= Matrix4.CreateRotationX(Rotation.X * Renderer.RCF);
+			m *= Matrix4.CreateRotationY(Rotation.Y * Renderer.RCF);
+			m *= Matrix4.CreateRotationZ(Rotation.Z * Renderer.RCF);
 			m *= Matrix4.CreateTranslation(Position);
 			ModelMatrix = m;
 		}
@@ -476,7 +494,7 @@ namespace DominusCore {
 			List<float> vertexList = new List<float>();
 			vertexList.AddRange(new List<float> { 0f, 0f, 0f, 0.5f, 0.5f, 1f, 0f, 0f, 1f, 0.0f, 0.0f, -1.0f, });
 			for (int i = 1; i <= density; i++) {
-				float angle = Game.RCF * i * (360.0f / (float)density);
+				float angle = Renderer.RCF * i * (360.0f / (float)density);
 				vertexList.AddRange(new List<float>{
 					(float) Math.Cos(angle), (float) Math.Sin(angle), 0f,
 					((float) Math.Cos(angle) + 1)/2.0f, ((float) Math.Sin(angle) + 1)/2.0f,
@@ -534,9 +552,9 @@ namespace DominusCore {
 		/// <summary> Sets appropriate uniforms in the lighting shader using the stored next light ID, and increments the ID.
 		/// <br/> !! Warning !! This means that the lighting uniform IDs are not ensured to be consistent from frame to frame!</summary>
 		public override bool DrawSelf() {
-			if (Game.CurrentPass != Game.RenderPass.Lighting) return false;
+			if (Renderer.CurrentPass != Renderer.RenderPass.Lighting) return false;
 
-			ShaderProgramLighting shader = Game.LightingShader;
+			ShaderProgramLighting shader = Renderer.LightingShader;
 			shader.SetLightUniform(shader.NextLightID, Strength, Position, Color, Direction);
 			shader.NextLightID++;
 			return false;
