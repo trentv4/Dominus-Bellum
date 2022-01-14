@@ -32,6 +32,8 @@ namespace DominusCore {
 		private static Matrix4 CameraPerspectiveMatrix;
 
 		// Debugging
+		private static DebugProc debugCallback = DebugCallback;
+		private static GCHandle debugCallbackHandle;
 		private static Stopwatch frameTimer = new Stopwatch();
 		/// <summary> Array storing the last n frame lengths, to provide an average in the title bar for performance monitoring. </summary>
 		private double[] frameTimes = new double[30];
@@ -54,7 +56,8 @@ namespace DominusCore {
 			Console.WriteLine("OnRenderThreadStarted(): start");
 
 			// Misc GL flags and callbacks
-			GL.DebugMessageCallback(DebugCallback, IntPtr.Zero);
+			debugCallbackHandle = GCHandle.Alloc(debugCallback);
+			GL.DebugMessageCallback(debugCallback, IntPtr.Zero);
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
@@ -75,7 +78,7 @@ namespace DominusCore {
 			FontAtlas.Load("calibri", "assets/fonts/calibri.png", "assets/fonts/calibri.json");
 
 			// Necessary to have this to prevent attribs from crashing due to unbound VBO
-			//GL.BindBuffer(BufferTarget.ArrayBuffer, GL.GenBuffer());
+			GL.BindBuffer(BufferTarget.ArrayBuffer, GL.GenBuffer());
 
 			InterfaceShader.SetVertexAttribPointers(new[] { 2, 2 });
 			GeometryShader.SetVertexAttribPointers(new[] { 3, 2, 4, 3 });
