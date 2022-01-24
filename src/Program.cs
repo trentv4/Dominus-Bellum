@@ -61,7 +61,7 @@ namespace DominusCore {
 			GL.Enable(EnableCap.DebugOutput);
 			GL.Enable(EnableCap.DebugOutputSynchronous);
 			GL.Enable(EnableCap.DepthTest);
-			VSync = VSyncMode.On;
+			VSync = VSyncMode.Off;
 
 			InterfaceShader = new ShaderProgramInterface("src/shaders/InterfaceShader.glsl");
 			LightingShader = new ShaderProgramLighting("src/shaders/LightingShader.glsl");
@@ -91,6 +91,7 @@ namespace DominusCore {
 			frameTimer.Restart();
 
 			GameData d = Program.Logic.GetGameData();
+			Console.WriteLine(d.CameraPosition);
 			Scene.Update(d);
 
 			Vector2 ProjectMatrixNearFar = new Vector2(0.01f, 1000000f);
@@ -135,6 +136,7 @@ namespace DominusCore {
 			frameTimer.Stop();
 
 			// How long did the frame take?
+
 			Array.Copy(frameTimes, 1, frameTimes, 0, frameTimes.Length - 1);
 			frameTimes[frameTimes.Length - 1] = 1000f * frameTimer.ElapsedTicks / Stopwatch.Frequency;
 			double time = frameTimes.Sum() / frameTimes.Length;
@@ -204,8 +206,14 @@ namespace DominusCore {
 
 		public GameData GetGameData() {
 			lock (Data) {
-				GameData d = Data;
-				Data = new GameData();
+				GameData d = new GameData() {
+					CameraPosition = Data.CameraPosition,
+					CameraTarget = Data.CameraTarget,
+					Gamepack = Data.Gamepack,
+					Level = Data.Level,
+					EventQueue = Data.EventQueue
+				};
+				Data.EventQueue = new List<string>();
 				return d;
 			}
 		}
